@@ -1,5 +1,5 @@
 // ===================================
-//  Type Definitions
+// Type Definitions
 // ===================================
 
 #include <d3d11.h>
@@ -32,86 +32,6 @@ struct sml_dx11_context
 static sml_dx11_context Dx11;
 static sml_tri_mesh     CubeMesh;
 
-static const char* SmlDefaultShader = R"(
-
-//--------------------------------------------------------------------------------------
-// Constant buffers
-//--------------------------------------------------------------------------------------
-cbuffer TransformBuffer : register(b0)
-{
-    row_major float4x4 View;
-    float4x4 Projection;
-};
-
-cbuffer MaterialBuffer : register(b1)
-{
-    float3 AlbedoFactor;
-    float  MetallicFactor;
-    float  RoughnessFactor;
-};
-
-//--------------------------------------------------------------------------------------
-// Textures & Sampler
-//--------------------------------------------------------------------------------------
-Texture2D    AlbedoTexture            : register(t0);
-Texture2D    NormalTexture            : register(t1);
-Texture2D    MetallicRoughnessTexture : register(t2);
-Texture2D    AmbientOcclusionTexture  : register(t3);
-
-SamplerState MaterialSampler : register(s0);
-
-//--------------------------------------------------------------------------------------
-// Vertex input / output
-//--------------------------------------------------------------------------------------
-struct VSInput
-{
-    float3 Position : POSITION;
-    float3 Normal   : NORMAL;
-    float2 UV       : TEXCOORD0;
-};
-
-struct VSOutput
-{
-    float4 Position : SV_POSITION;
-    float3 Normal   : TEXCOORD1;
-    float2 UV       : TEXCOORD2;
-};
-
-//--------------------------------------------------------------------------------------
-// Vertex Shader
-//--------------------------------------------------------------------------------------
-VSOutput VSMain(VSInput IN)
-{
-    VSOutput OUT;
-
-    OUT.Position = mul(Projection, mul(float4(IN.Position, 1.0f), View));
-    OUT.Normal   = IN.Normal;
-    OUT.UV       = IN.UV;
-
-    return OUT;
-}
-
-//--------------------------------------------------------------------------------------
-// Pixel Shader
-//--------------------------------------------------------------------------------------
-float4 PSMain(VSOutput IN) : SV_Target
-{
-    // Sample all maps
-    float3 albedo   = AlbedoTexture.Sample(MaterialSampler, IN.UV).rgb * AlbedoFactor;
-    float  metallic = MetallicRoughnessTexture.Sample(MaterialSampler, IN.UV).b * MetallicFactor;
-    float  roughness= MetallicRoughnessTexture.Sample(MaterialSampler, IN.UV).g * RoughnessFactor;
-    float  ao       = AmbientOcclusionTexture.Sample(MaterialSampler, IN.UV).r;
-
-    float3 color = albedo;
-
-    return float4(color, 1.0f);
-}
-
-//--------------------------------------------------------------------------------------
-// Technique / Pass (for FX-based systems, optionally)
-//--------------------------------------------------------------------------------------
-)";
-
 // ===================================
 // Internal functions
 // ===================================
@@ -133,7 +53,7 @@ SmlDx11_GetDXGIFormat(SmlData_Type Format)
 // Directx11 Files
 // ===================================
 
-#include "dx11_pipeline.cpp"
+#include "sml_dx11_pipeline.cpp"
 
 // ===================================
 // Functions declaration
@@ -146,7 +66,8 @@ static void SmlDx11_Render(sml_render_command_header* Header);
 // ===================================
 
 static sml_render_playback_function
-SmlDx11_Initialize(sml_window Window)
+SmlDx11_Initialize(sml_window Window, sml_material_desc MaterialDesc,
+                   sml_pipeline_desc PipelineDesc)
 {
     DXGI_SWAP_CHAIN_DESC SDesc = {};
     SDesc.BufferCount          = 2;
@@ -175,7 +96,8 @@ SmlDx11_Initialize(sml_window Window)
     Status = Dx11.SwapChain->GetBuffer(0, IID_PPV_ARGS(&BackBuffer));
     Sml_Assert(SUCCEEDED(Status));
 
-    Status = Dx11.Device->CreateRenderTargetView(BackBuffer, nullptr, &Dx11.RenderView);
+    Status = Dx11.Device->CreateRenderTargetView(BackBuffer, nullptr,
+                                                 &Dx11.RenderView);
     Sml_Assert(SUCCEEDED(Status));
 
     BackBuffer->Release();
@@ -218,89 +140,31 @@ SmlDx11_Initialize(sml_window Window)
 
     Sml_Assert(SUCCEEDED(Status));
 
-    // Default pipeline init
+    SmlPipeline.BackendData         = SmlDx11_CreatePipeline(PipelineDesc);
+    sml_dx11_pipeline *Dx11Pipeline = (sml_dx11_pipeline*)SmlPipeline.BackendData;
+
+    // Upload a simple cube
     {
-        sml_shader_desc ShaderDesc[2] = {};
-
-        sml_shader_desc *VShaderDesc        = &ShaderDesc[0];
-        VShaderDesc->Type                   = SmlShader_Vertex;
-        VShaderDesc->Flags                  = SmlShader_CompileFromBuffer;
-        VShaderDesc->Info.Buffer.EntryPoint = "VSMain";
-        VShaderDesc->Info.Buffer.ByteCode   = SmlDefaultShader;
-        VShaderDesc->Info.Buffer.Size       = strlen(SmlDefaultShader);
-
-        sml_shader_desc *PShaderDesc        = &ShaderDesc[1];
-        PShaderDesc->Type                   = SmlShader_Pixel;
-        PShaderDesc->Flags                  = SmlShader_CompileFromBuffer;
-        PShaderDesc->Info.Buffer.EntryPoint = "PSMain";
-        PShaderDesc->Info.Buffer.ByteCode   = SmlDefaultShader;
-        PShaderDesc->Info.Buffer.Size       = strlen(SmlDefaultShader);
-
-        sml_pipeline_layout Layout[3] = 
-        {
-            {"POSITION", 0, SmlData_Vector3Float},
-            {"NORMAL"  , 0, SmlData_Vector3Float},
-            {"TEXCOORD", 0, SmlData_Vector2Float},
-        };
-
-        sml_pipeline_desc PipelineDesc = {};
-        PipelineDesc.Shaders           = ShaderDesc;
-        PipelineDesc.ShaderCount       = 2;
-        PipelineDesc.Layout            = Layout;
-        PipelineDesc.LayoutCount       = 3;
-
-        SmlPipeline = SmlDx11_CreatePipeline(PipelineDesc);
-
         CubeMesh = GetCubeMesh();
 
         D3D11_MAPPED_SUBRESOURCE VMapped;
-        Status = Dx11.Context->Map(SmlPipeline.VertexBuffer.Handle, 0, D3D11_MAP_WRITE_DISCARD,
-                                   0, &VMapped);
+        Status = Dx11.Context->Map(Dx11Pipeline->VertexBuffer.Handle, 0,
+                                   D3D11_MAP_WRITE_DISCARD, 0, &VMapped);
 
         memcpy(VMapped.pData, CubeMesh.VertexData, CubeMesh.VertexDataSize);
 
-        Dx11.Context->Unmap(SmlPipeline.VertexBuffer.Handle, 0);
+        Dx11.Context->Unmap(Dx11Pipeline->VertexBuffer.Handle, 0);
 
         D3D11_MAPPED_SUBRESOURCE IMapped;
-        Status = Dx11.Context->Map(SmlPipeline.IndexBuffer.Handle, 0, D3D11_MAP_WRITE_DISCARD,
-                                   0, &IMapped);
+        Status = Dx11.Context->Map(Dx11Pipeline->IndexBuffer.Handle, 0,
+                                   D3D11_MAP_WRITE_DISCARD, 0, &IMapped);
 
         memcpy(IMapped.pData, CubeMesh.IndexData, CubeMesh.IndexDataSize);
 
-        Dx11.Context->Unmap(SmlPipeline.IndexBuffer.Handle, 0);
+        Dx11.Context->Unmap(Dx11Pipeline->IndexBuffer.Handle, 0);
     }
 
-    // Default material init
-    {
-        sml_material_desc MaterialDesc = {};
-
-        sml_texture_desc *Albedo = MaterialDesc.Textures + SmlMaterial_Albedo;
-        Albedo->Info.Path        = "../../small_engine/data/textures/brick_wall/brick_wall_albedo.png";
-        Albedo->MaterialType     = SmlMaterial_Albedo;
-        Albedo->BindSlot         = 0;
-
-        sml_texture_desc *Normal = MaterialDesc.Textures + SmlMaterial_Normal;
-        Normal->Info.Path        = "../../small_engine/data/textures/brick_wall/brick_wall_normal.png";
-        Normal->MaterialType     = SmlMaterial_Normal;
-        Normal->BindSlot         = 1;
-
-        sml_texture_desc *Metallic = MaterialDesc.Textures + SmlMaterial_Metallic;
-        Metallic->Info.Path        = "../../small_engine/data/textures/brick_wall/brick_wall_metallic.png";
-        Metallic->MaterialType     = SmlMaterial_Metallic;
-        Metallic->BindSlot         = 2;
-
-        sml_texture_desc *Ambient = MaterialDesc.Textures + SmlMaterial_AmbientOcc;
-        Ambient->Info.Path        = "../../small_engine/data/textures/brick_wall/brick_wall_ao.png";
-        Ambient->MaterialType     = SmlMaterial_AmbientOcc;
-        Ambient->BindSlot         = 3;
-
-        sml_pbr_material_constant *Constants = &MaterialDesc.Constants;
-        Constants->AlbedoFactor              = sml_vector3(1.0f, 1.0f, 1.0f);
-        Constants->MetallicFactor            = 1.0f;
-        Constants->RoughnessFactor           = 1.0f;
-
-        SmlPipeline.Material = SmlDx11_CreateMaterial(MaterialDesc);
-    }
+    Dx11Pipeline->Material = SmlDx11_CreateMaterial(MaterialDesc);
 
     // Camera init
     {
@@ -367,7 +231,8 @@ SmlDx11_Render(sml_render_command_header *Header)
     // TODO: Add topology in the pipeline
     Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    SmlDx11_BindPipeline(&SmlPipeline);
+    sml_dx11_pipeline *Pipeline = (sml_dx11_pipeline*)SmlPipeline.BackendData;
+    SmlDx11_BindPipeline(Pipeline);
 
     Context->DrawIndexed(CubeMesh.IndexCount, 0, 0);
     Dx11.SwapChain->Present(1, 0);

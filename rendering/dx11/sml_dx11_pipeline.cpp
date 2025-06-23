@@ -1,5 +1,5 @@
 // ===================================
-//  Type Definitions
+// Type Definitions
 // ===================================
 
 struct sml_dx11_vbuffer
@@ -51,7 +51,6 @@ struct sml_dx11_pipeline
 //  Global variables
 // ===================================
 
-static sml_dx11_pipeline SmlPipeline;
 
 // ===================================
 //  Internal Helpers
@@ -265,13 +264,14 @@ SmlDx11_LoadTextureFromPath(const char *FileName)
 // 2) Does not handle instanced pipelines
 // 3) Does not handle semantic indices
 
-static sml_dx11_pipeline
+// BUG: Need to allocate a pipeline. Just malloc it for now.
+static sml_dx11_pipeline*
 SmlDx11_CreatePipeline(sml_pipeline_desc PipelineDesc)
 {
-    sml_dx11_pipeline Pipeline = {};
-    HRESULT           Status   = S_OK;
+    sml_dx11_pipeline *Pipeline = (sml_dx11_pipeline*)malloc(sizeof(sml_dx11_pipeline));
+    HRESULT            Status   = S_OK;
 
-    SmlDx11_CompilePipelineShaders(PipelineDesc, &Pipeline);
+    SmlDx11_CompilePipelineShaders(PipelineDesc, Pipeline);
 
     D3D11_BUFFER_DESC VDesc = {};
     VDesc.Usage             = D3D11_USAGE_DYNAMIC;
@@ -279,7 +279,7 @@ SmlDx11_CreatePipeline(sml_pipeline_desc PipelineDesc)
     VDesc.BindFlags         = D3D11_BIND_VERTEX_BUFFER;
     VDesc.CPUAccessFlags    = D3D11_CPU_ACCESS_WRITE;
 
-    Status = Dx11.Device->CreateBuffer(&VDesc, nullptr, &Pipeline.VertexBuffer.Handle);
+    Status = Dx11.Device->CreateBuffer(&VDesc, nullptr, &Pipeline->VertexBuffer.Handle);
     Sml_Assert(SUCCEEDED(Status));
 
     D3D11_BUFFER_DESC IDesc = {};
@@ -288,7 +288,7 @@ SmlDx11_CreatePipeline(sml_pipeline_desc PipelineDesc)
     IDesc.BindFlags         = D3D11_BIND_INDEX_BUFFER;
     IDesc.CPUAccessFlags    = D3D11_CPU_ACCESS_WRITE;
 
-    Status = Dx11.Device->CreateBuffer(&IDesc, nullptr, &Pipeline.IndexBuffer.Handle);
+    Status = Dx11.Device->CreateBuffer(&IDesc, nullptr, &Pipeline->IndexBuffer.Handle);
     Sml_Assert(SUCCEEDED(Status));
 
     return Pipeline;

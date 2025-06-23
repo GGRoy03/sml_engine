@@ -145,9 +145,9 @@ struct sml_texture_desc
 struct sml_pbr_material_constant
 {
     sml_vector3 AlbedoFactor;
-    f32         MetallicFactor;
-    f32         RoughnessFactor;
-    f32         Padding[3];
+    sml_f32     MetallicFactor;
+    sml_f32     RoughnessFactor;
+    sml_f32     Padding[3];
 };
 
 struct sml_material_desc
@@ -156,13 +156,100 @@ struct sml_material_desc
     sml_pbr_material_constant Constants;
 };
 
+struct sml_pipeline
+{
+    u32   Handle;
+    void *BackendData;
+};
+
 // ===================================
 //  Global variables
 // ===================================
 
+static sml_pipeline SmlPipeline;
+static sml_u32      NextPipelineHandle = 0;
+
 static SmlRenderer_Backend ActiveBackend;
 
-static u32 NextPipelineHandle = 0;
+static const char* SmlDefaultShader_HLSL = R"(
+
+//--------------------------------------------------------------------------------------
+// Constant buffers
+//--------------------------------------------------------------------------------------
+cbuffer TransformBuffer : register(b0)
+{
+    row_major float4x4 View;
+    float4x4 Projection;
+};
+
+cbuffer MaterialBuffer : register(b1)
+{
+    float3 AlbedoFactor;
+    float  MetallicFactor;
+    float  RoughnessFactor;
+};
+
+//--------------------------------------------------------------------------------------
+// Textures & Sampler
+//--------------------------------------------------------------------------------------
+Texture2D    AlbedoTexture            : register(t0);
+Texture2D    NormalTexture            : register(t1);
+Texture2D    MetallicRoughnessTexture : register(t2);
+Texture2D    AmbientOcclusionTexture  : register(t3);
+
+SamplerState MaterialSampler : register(s0);
+
+//--------------------------------------------------------------------------------------
+// Vertex input / output
+//--------------------------------------------------------------------------------------
+struct VSInput
+{
+    float3 Position : POSITION;
+    float3 Normal   : NORMAL;
+    float2 UV       : TEXCOORD0;
+};
+
+struct VSOutput
+{
+    float4 Position : SV_POSITION;
+    float3 Normal   : TEXCOORD1;
+    float2 UV       : TEXCOORD2;
+};
+
+//--------------------------------------------------------------------------------------
+// Vertex Shader
+//--------------------------------------------------------------------------------------
+VSOutput VSMain(VSInput IN)
+{
+    VSOutput OUT;
+
+    OUT.Position = mul(Projection, mul(float4(IN.Position, 1.0f), View));
+    OUT.Normal   = IN.Normal;
+    OUT.UV       = IN.UV;
+
+    return OUT;
+}
+
+//--------------------------------------------------------------------------------------
+// Pixel Shader
+//--------------------------------------------------------------------------------------
+float4 PSMain(VSOutput IN) : SV_Target
+{
+    // Sample all maps
+    float3 albedo   = AlbedoTexture.Sample(MaterialSampler, IN.UV).rgb * AlbedoFactor;
+    float  metallic = MetallicRoughnessTexture.Sample(MaterialSampler, IN.UV).b * MetallicFactor;
+    float  roughness= MetallicRoughnessTexture.Sample(MaterialSampler, IN.UV).g * RoughnessFactor;
+    float  ao       = AmbientOcclusionTexture.Sample(MaterialSampler, IN.UV).r;
+
+    float3 color = albedo;
+
+    return float4(color, 1.0f);
+}
+
+//--------------------------------------------------------------------------------------
+// Technique / Pass (for FX-based systems, optionally)
+//--------------------------------------------------------------------------------------
+)";
 
 // ===================================
 // Renderer agnostic files
@@ -198,31 +285,41 @@ Sml_GetSizeOfDataType(SmlData_Type Type)
     }
 }
 
+static const char*
+Sml_GetDefaultShaderByteCode(SmlRenderer_Backend Backend)
+{
+    switch(Backend)
+    {
+
+    case SmlRenderer_DX11: return SmlDefaultShader_HLSL;
+
+    }
+}
+
+static size_t
+Sml_GetDefaultShaderSize(SmlRenderer_Backend Backend)
+{
+
+    switch(Backend)
+    {
+
+    case SmlRenderer_DX11: return strlen(SmlDefaultShader_HLSL);
+
+    }
+}
+
 // ===================================
 // Renderer specific files
 // ===================================
 
 #ifdef _WIN32
-#include "dx11/dx11.cpp"
+#include "dx11/sml_dx11.cpp"
 #endif
 
 // ===================================
 // User API
 // ===================================
 
-struct sml_pipeline
-{
-    u32 Handle;
-
-    union
-    {
-
-#ifdef _WIN32
-        sml_dx11_pipeline Dx11;
-#endif
-
-    } Backend;
-};
 
 static sml_pipeline
 Sml_CreatePipeline(sml_pipeline_desc Desc)
@@ -238,8 +335,8 @@ Sml_CreatePipeline(sml_pipeline_desc Desc)
 
     case SmlRenderer_DX11:
     {
-        Pipeline.Backend.Dx11 = SmlDx11_CreatePipeline(Desc);
-        Pipeline.Handle       = NextPipelineHandle;
+        Pipeline.BackendData = SmlDx11_CreatePipeline(Desc);
+        Pipeline.Handle      = NextPipelineHandle;
     } break;
 
 #endif
@@ -249,14 +346,76 @@ Sml_CreatePipeline(sml_pipeline_desc Desc)
 
     }
 
+    NextPipelineHandle++;
+
     return Pipeline;
 };
 
 static sml_render_playback_function 
-Sml_CreateRenderer(SmlRenderer_Backend Backend, SmlRender_Mode Mode,
+Sml_CreateRenderer(SmlRenderer_Backend Backend,
                    sml_window Window)
 {
-    Sml_Unused(Mode);
+    sml_material_desc MaterialDesc = {};
+    sml_pipeline_desc PipelineDesc = {};
+
+    // Default pipeline init
+    {
+        sml_shader_desc ShaderDesc[2] = {};
+
+        sml_shader_desc *VShaderDesc        = &ShaderDesc[0];
+        VShaderDesc->Type                   = SmlShader_Vertex;
+        VShaderDesc->Flags                  = SmlShader_CompileFromBuffer;
+        VShaderDesc->Info.Buffer.EntryPoint = "VSMain";
+        VShaderDesc->Info.Buffer.ByteCode   = Sml_GetDefaultShaderByteCode(Backend);
+        VShaderDesc->Info.Buffer.Size       = Sml_GetDefaultShaderSize(Backend);
+
+        sml_shader_desc *PShaderDesc        = &ShaderDesc[1];
+        PShaderDesc->Type                   = SmlShader_Pixel;
+        PShaderDesc->Flags                  = SmlShader_CompileFromBuffer;
+        PShaderDesc->Info.Buffer.EntryPoint = "PSMain";
+        PShaderDesc->Info.Buffer.ByteCode   = Sml_GetDefaultShaderByteCode(Backend);
+        PShaderDesc->Info.Buffer.Size       = Sml_GetDefaultShaderSize(Backend);
+
+        sml_pipeline_layout Layout[3] = 
+        {
+            {"POSITION", 0, SmlData_Vector3Float},
+            {"NORMAL"  , 0, SmlData_Vector3Float},
+            {"TEXCOORD", 0, SmlData_Vector2Float},
+        };
+
+        PipelineDesc.Shaders     = ShaderDesc;
+        PipelineDesc.ShaderCount = 2;
+        PipelineDesc.Layout      = Layout;
+        PipelineDesc.LayoutCount = 3;
+    }
+
+    // Default material
+    {
+        sml_texture_desc *Albedo = MaterialDesc.Textures + SmlMaterial_Albedo;
+        Albedo->Info.Path        = "../../small_engine/data/textures/brick_wall/brick_wall_albedo.png";
+        Albedo->MaterialType     = SmlMaterial_Albedo;
+        Albedo->BindSlot         = 0;
+
+        sml_texture_desc *Normal = MaterialDesc.Textures + SmlMaterial_Normal;
+        Normal->Info.Path        = "../../small_engine/data/textures/brick_wall/brick_wall_normal.png";
+        Normal->MaterialType     = SmlMaterial_Normal;
+        Normal->BindSlot         = 1;
+
+        sml_texture_desc *Metallic = MaterialDesc.Textures + SmlMaterial_Metallic;
+        Metallic->Info.Path        = "../../small_engine/data/textures/brick_wall/brick_wall_metallic.png";
+        Metallic->MaterialType     = SmlMaterial_Metallic;
+        Metallic->BindSlot         = 2;
+
+        sml_texture_desc *Ambient = MaterialDesc.Textures + SmlMaterial_AmbientOcc;
+        Ambient->Info.Path        = "../../small_engine/data/textures/brick_wall/brick_wall_ao.png";
+        Ambient->MaterialType     = SmlMaterial_AmbientOcc;
+        Ambient->BindSlot         = 3;
+
+        sml_pbr_material_constant *Constants = &MaterialDesc.Constants;
+        Constants->AlbedoFactor              = sml_vector3(1.0f, 1.0f, 1.0f);
+        Constants->MetallicFactor            = 1.0f;
+        Constants->RoughnessFactor           = 1.0f;
+    }
 
     ActiveBackend = Backend;
 
@@ -267,7 +426,7 @@ Sml_CreateRenderer(SmlRenderer_Backend Backend, SmlRender_Mode Mode,
 
     case SmlRenderer_DX11:
     {
-        return SmlDx11_Initialize(Window);
+        return SmlDx11_Initialize(Window, MaterialDesc, PipelineDesc);
     } break;
 
 #endif
@@ -275,5 +434,6 @@ Sml_CreateRenderer(SmlRenderer_Backend Backend, SmlRender_Mode Mode,
     default:
         break;
     }
+
 }
 
