@@ -102,6 +102,34 @@ SmlMat4_LookAt(sml_vector3 Eye, sml_vector3 Target, sml_vector3 WorldUp)
 }
 
 static sml_matrix4
+SmlMat4_LookAt(sml_vector3 Eye,sml_vector3 R, sml_vector3 U, sml_vector3 F)
+{
+    sml_matrix4 Result;
+
+    Result.m0 = R.x;
+    Result.m1 = R.y;
+    Result.m2 = R.z;
+    Result.m3 = -SmlVec3_Dot(R, Eye);
+
+    Result.m4 = U.x;
+    Result.m5 = U.y;
+    Result.m6 = U.z;
+    Result.m7 = -SmlVec3_Dot(U, Eye);
+
+    Result.m8  = F.x;
+    Result.m9  = F.y;
+    Result.m10 = F.z;
+    Result.m11 = -SmlVec3_Dot(F, Eye);
+
+    Result.m12 = 0.0f;
+    Result.m13 = 0.0f;
+    Result.m14 = 0.0f;
+    Result.m15 = 1.0f;
+
+    return Result;
+}
+
+static sml_matrix4
 SmlMat4_Multiply(sml_matrix4 A, sml_matrix4 B)
 {
     sml_matrix4 Result;

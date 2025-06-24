@@ -40,7 +40,26 @@ struct sml_vector2
     }
 };
 
-sml_vector3 operator-(sml_vector3 A, sml_vector3 B)
+inline sml_vector3 operator+(const sml_vector3 &A, const sml_vector3 &B)
+{
+    sml_vector3 Result;
+
+    Result.x = A.x + B.x;
+    Result.y = A.y + B.y;
+    Result.z = A.z + B.z;
+
+    return Result;
+}
+
+inline sml_vector3& operator+=(sml_vector3 &A, const sml_vector3 &B)
+{
+    A.x += B.x;
+    A.y += B.y;
+    A.z += B.z;
+    return A;
+}
+
+inline sml_vector3 operator-(const sml_vector3 &A, const sml_vector3 &B)
 {
     sml_vector3 Result;
 
@@ -60,6 +79,25 @@ SmlVec3_Dot(sml_vector3 A, sml_vector3 B)
     Result += A.y * B.y;
     Result += A.z * B.z;
 
+    return Result;
+}
+
+static sml_vector3
+SmlVec3_Scale(const sml_vector3 &A, f32 Scalar)
+{
+    sml_vector3 Result;
+
+    Result.x = A.x * Scalar;
+    Result.y = A.y * Scalar;
+    Result.z = A.z * Scalar;
+
+    return Result;
+}
+
+static bool
+SmlVec3_IsZero(const sml_vector3 &A)
+{
+    bool Result = (A.x == 0.0f) && (A.y == 0.0f) && (A.z == 0.0f);
     return Result;
 }
 
