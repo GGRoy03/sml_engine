@@ -15,6 +15,7 @@ struct sml_camera_perspective
 
     sml_vector3 Position;
     sml_vector3 Target;
+
     sml_vector3 Up;
 
     sml_f32 FovY;
@@ -37,10 +38,11 @@ struct sml_camera_perspective
 // ===================================
 
 // WARN: Projection code does not accept different planes.
+// WARN: Does not use the delta time
 
 static sml_matrix4 
 Sml_UpdateCamera(sml_camera_perspective *Camera, sml_window Window,
-                 bool InternalUpdate)
+                 sml_game_controller_input *Inputs)
 {
     if(!Camera->IsInitialized)
     {
@@ -58,12 +60,43 @@ Sml_UpdateCamera(sml_camera_perspective *Camera, sml_window Window,
         Camera->IsInitialized = true;
     }
 
-    if(InternalUpdate)
+    sml_vector3 Forward  = SmlVec3_Normalize(Camera->Target - Camera->Position);
+    sml_vector3 Right    = SmlVec3_Normalize(SmlVec3_VectorProduct(Camera->Up,
+                                                                   Forward));
+    if(Inputs)
     {
-        // Read the inputs (W, A, S, D, Mouse) and rebuild the camera
+        sml_vector3 Movement = sml_vector3(0.0f, 0.0f, 0.0f);
+
+        if(Sml_IsKeyDown('W', Inputs))
+        {
+            Movement += Forward;
+        }
+
+        if(Sml_IsKeyDown('S', Inputs))
+        {
+            Movement += SmlVec3_Scale(Forward, -1.0f);
+        }
+
+        if(Sml_IsKeyDown('A', Inputs))
+        {
+            Movement += SmlVec3_Scale(Right, -1.0f);
+        }
+
+        if(Sml_IsKeyDown('D', Inputs))
+        {
+            Movement += Right;
+        }
+
+        if(!SmlVec3_IsZero(Movement))
+        {
+            sml_vector3 NormMov = SmlVec3_Normalize(Movement);
+            Movement            = SmlVec3_Scale(NormMov, Camera->Speed);
+            Camera->Position   += Movement;
+            Camera->Target      = Camera->Position + Forward;
+        }
     }
 
-    Camera->View       = SmlMat4_LookAt(Camera->Position, Camera->Target, Camera->Up);
+    Camera->View       = SmlMat4_LookAt(Camera->Position, Right, Camera->Up, Forward);
     Camera->Projection = SmlMat4_Perspective(Camera->FovY, Camera->Aspect);
 
     sml_matrix4 Result = SmlMat4_Multiply(Camera->Projection, Camera->View);
