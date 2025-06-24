@@ -1,5 +1,5 @@
 // ===========================================
-// Internal SML win32 API functions.
+// Internal Functions.
 // ==========================================
 
 static LRESULT CALLBACK
@@ -20,14 +20,40 @@ SmlWin32_WindowProc(HWND Handle, UINT Message, WPARAM WParam, LPARAM LParam)
     }
 }
 
+static void
+SmlWin32_ProcessKeyboardMessage(sml_game_button_state *NewState, bool IsDown)
+{
+    if(NewState->EndedDown != IsDown)
+    {
+        NewState->EndedDown = IsDown;
+        ++NewState->HalfTransitionCount;
+    }
+}
+
 static bool
-SmlWin32_ProcessMessages()
+SmlWin32_ProcessMessages(sml_game_controller_input *Keyboard)
 {
     MSG Message;
     while (PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
     {
         switch (Message.message)
         {
+
+        case WM_KEYDOWN:
+        case WM_KEYUP:
+        case WM_SYSKEYDOWN:
+        case WM_SYSKEYUP:
+        {
+            u32  VKCode  = (u32)Message.wParam;
+            bool WasDown = ((Message.lParam & (1 << 30)) != 0);
+            bool IsDown  = ((Message.lParam & (1 << 31)) == 0);
+
+            if(WasDown != IsDown && VKCode < SML_KEYBOARD_KEY_COUNT)
+            {
+                SmlWin32_ProcessKeyboardMessage(&Keyboard->Buttons[VKCode], IsDown);
+            }
+
+        } break;
 
         case WM_QUIT:
         {
@@ -70,7 +96,7 @@ SmlWin32_GetClientSize(HWND Handle, sml_i32 *OutWidth, sml_i32 *OutHeight)
 }
 
 // ===========================================
-// Sml platform API implementation
+// User API implementation
 // ==========================================
 
 sml_window 
@@ -110,12 +136,22 @@ Sml_CreateWindow(sml_i32 Width, sml_i32 Height, const char *Title)
 }
 
 bool 
-Sml_UpdateWindow(sml_window *Window)
+Sml_UpdateWindow(sml_window *Window, sml_game_controller_input *Inputs)
 {
-    bool WindowClosed = SmlWin32_ProcessMessages();
+    bool WindowClosed = SmlWin32_ProcessMessages(Inputs);
     if(!WindowClosed) return false;
 
     SmlWin32_GetClientSize((HWND)Window->Handle, &Window->Width, &Window->Height);
 
     return true;
+}
+
+bool Sml_IsKeyDown(char Char, sml_game_controller_input* Inputs)
+{
+    SHORT KeyScan = VkKeyScanA(Char);
+    if(KeyScan == -1) return false;
+
+    BYTE VKCode = LOBYTE(KeyScan);
+
+    return Inputs->Buttons[VKCode].EndedDown;
 }
