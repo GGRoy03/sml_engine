@@ -1,3 +1,18 @@
+struct sml_vector4
+{
+    f32 x, y, z, w;
+
+    sml_vector4(){};
+
+    sml_vector4(f32 x_, f32 y_, f32 z_, f32 w_)
+    {
+        x = x_;
+        y = y_;
+        z = z_;
+        w = w_;
+    }
+};
+
 struct sml_vector3
 {
     f32 x, y, z;
