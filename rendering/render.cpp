@@ -57,7 +57,7 @@ struct sml_render_mesh_payload
     u32    IndexCount;
 };
 
-using sml_render_playback_function = void(*)(sml_render_command_header *Header);
+using sml_render_playback_function = void(*)(sml_matrix4 *Camera);
 
 enum SmlData_Type
 {
@@ -178,8 +178,7 @@ static const char* SmlDefaultShader_HLSL = R"(
 //--------------------------------------------------------------------------------------
 cbuffer TransformBuffer : register(b0)
 {
-    row_major float4x4 View;
-    float4x4 Projection;
+    float4x4 ViewProjection;
 };
 
 cbuffer MaterialBuffer : register(b1)
@@ -223,7 +222,7 @@ VSOutput VSMain(VSInput IN)
 {
     VSOutput OUT;
 
-    OUT.Position = mul(Projection, mul(float4(IN.Position, 1.0f), View));
+    OUT.Position = mul(ViewProjection, float4(IN.Position, 1.0f));
     OUT.Normal   = IN.Normal;
     OUT.UV       = IN.UV;
 
@@ -250,10 +249,6 @@ float4 PSMain(VSOutput IN) : SV_Target
 // Technique / Pass (for FX-based systems, optionally)
 //--------------------------------------------------------------------------------------
 )";
-
-// ===================================
-// Renderer agnostic files
-// ===================================
 
 // ===================================
 // Internal Helpers
@@ -309,6 +304,12 @@ Sml_GetDefaultShaderSize(SmlRenderer_Backend Backend)
 }
 
 // ===================================
+// Renderer agnostic files
+// ===================================
+
+#include "camera.cpp"
+
+// ===================================
 // Renderer specific files
 // ===================================
 
@@ -319,7 +320,6 @@ Sml_GetDefaultShaderSize(SmlRenderer_Backend Backend)
 // ===================================
 // User API
 // ===================================
-
 
 static sml_pipeline
 Sml_CreatePipeline(sml_pipeline_desc Desc)
@@ -352,8 +352,7 @@ Sml_CreatePipeline(sml_pipeline_desc Desc)
 };
 
 static sml_render_playback_function 
-Sml_CreateRenderer(SmlRenderer_Backend Backend,
-                   sml_window Window)
+Sml_CreateRenderer(SmlRenderer_Backend Backend, sml_window Window)
 {
     sml_material_desc MaterialDesc = {};
     sml_pipeline_desc PipelineDesc = {};

@@ -59,7 +59,7 @@ SmlDx11_GetDXGIFormat(SmlData_Type Format)
 // Functions declaration
 // ===================================
 
-static void SmlDx11_Render(sml_render_command_header* Header);
+static void SmlDx11_Render(sml_matrix4 *Camera);
 
 // ===================================
 // Internal functions
@@ -168,34 +168,14 @@ SmlDx11_Initialize(sml_window Window, sml_material_desc MaterialDesc,
 
     // Camera init
     {
-        struct
-        {
-            sml_matrix4 View;
-            sml_matrix4 Projection;
-        } Camera;
-
         D3D11_BUFFER_DESC CBufferDesc = {};
-        CBufferDesc.ByteWidth         = sizeof(Camera);
+        CBufferDesc.ByteWidth         = sizeof(sml_matrix4);
         CBufferDesc.BindFlags         = D3D11_BIND_CONSTANT_BUFFER;
         CBufferDesc.Usage             = D3D11_USAGE_DYNAMIC;
         CBufferDesc.CPUAccessFlags    = D3D11_CPU_ACCESS_WRITE;
 
         Status = Dx11.Device->CreateBuffer(&CBufferDesc, nullptr, &Dx11.CameraBuffer);
         Sml_Assert(SUCCEEDED(Status));
-
-        D3D11_MAPPED_SUBRESOURCE CMapped;
-        Status = Dx11.Context->Map(Dx11.CameraBuffer, 0,
-                                   D3D11_MAP_WRITE_DISCARD, 0, &CMapped);
-        Sml_Assert(SUCCEEDED(Status));
-
-        sml_vector3 Eye     = sml_vector3(1.0f, 0.0f, -1.0f);
-        sml_vector3 WorldUp = sml_vector3(0.0f, 1.0f, 0.0f);
-        sml_vector3 Target  = sml_vector3(0.0f, 0.0f, 0.0f);
-        Camera.View         = SmlMat4_LookAt(Eye, Target, WorldUp);
-        Camera.Projection   = SmlMat4_Perspective(90.0f, (f32)Window.Width/(f32)Window.Height);
-
-        memcpy(CMapped.pData, &Camera, sizeof(Camera));
-        Dx11.Context->Unmap(Dx11.CameraBuffer, 0);
     }
 
     return SmlDx11_Render;
@@ -206,10 +186,8 @@ SmlDx11_Initialize(sml_window Window, sml_material_desc MaterialDesc,
 // ===================================
 
 static void
-SmlDx11_Render(sml_render_command_header *Header)
+SmlDx11_Render(sml_matrix4 *Camera)
 {
-    Sml_Unused(Header);
-
     ID3D11DeviceContext *Context = Dx11.Context;
 
     const float ClearColor[4] = { 0.1f, 0.1f, 0.1f, 1.0f };
@@ -218,15 +196,21 @@ SmlDx11_Render(sml_render_command_header *Header)
                                    D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
                                    1.0f, 0);
 
-    Context->OMSetRenderTargets(
-        1,
-        &Dx11.RenderView,
-        Dx11.DepthView
-    );
+    Context->OMSetRenderTargets(1, &Dx11.RenderView, Dx11.DepthView);
 
     Context->RSSetViewports(1, &Dx11.Viewport);
 
-    Context->VSSetConstantBuffers(0, 1, &Dx11.CameraBuffer);
+    // Upload the camera data.
+    {
+        D3D11_MAPPED_SUBRESOURCE Mapped;
+        Dx11.Context->Map(Dx11.CameraBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
+
+        memcpy(Mapped.pData, Camera, sizeof(sml_matrix4));
+        Dx11.Context->Unmap(Dx11.CameraBuffer, 0);
+
+        Context->VSSetConstantBuffers(0, 1, &Dx11.CameraBuffer);
+    }
+
 
     // TODO: Add topology in the pipeline
     Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

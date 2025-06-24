@@ -263,8 +263,8 @@ SmlDx11_LoadTextureFromPath(const char *FileName)
 // 1) Does not handle compiler flags.
 // 2) Does not handle instanced pipelines
 // 3) Does not handle semantic indices
+// 4) We malloc the pipeline instead of using an allocator
 
-// BUG: Need to allocate a pipeline. Just malloc it for now.
 static sml_dx11_pipeline*
 SmlDx11_CreatePipeline(sml_pipeline_desc PipelineDesc)
 {
