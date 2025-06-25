@@ -29,18 +29,16 @@ struct sml_dx11_context
 // Rendering API
 // ===================================
 
-static void SmlDx11_Initialize(sml_window Window);
-static void SmlDx11_Render(sml_matrix4 *Camera);
+static sml_renderer* SmlDx11_Initialize(sml_window Window);
+
+static void SmlDx11_ClearScreen(sml_draw_command_header *Header);
+
+static void SmlDx11_Setup   (sml_renderer *Renderer);
+static void SmlDx11_Playback(sml_renderer *Renderer);
 
 // ===================================
 //  Global variables
 // ===================================
-
-static sml_renderer DirectX11_Implementation =
-{
-    .Initialize = SmlDx11_Initialize,
-    .Render     = SmlDx11_Render,
-};
 
 static sml_dx11_context Dx11;
 static sml_tri_mesh     CubeMesh;
@@ -67,14 +65,18 @@ SmlDx11_GetDXGIFormat(SmlData_Type Format)
 // ===================================
 
 #include "sml_dx11_pipeline.cpp"
+#include "sml_dx11_setup.cpp"
+#include "sml_dx11_draw.cpp"
 
 // ===================================
 // API Implementation
 // ===================================
 
-// WARN: This needs a huge cleanup
+// WARN: 
+// 1) This needs a huge cleanup
+// 2) Uses malloc for the renderer allocation
 
-static void
+static sml_renderer*
 SmlDx11_Initialize(sml_window Window)
 {
     DXGI_SWAP_CHAIN_DESC SDesc = {};
@@ -148,8 +150,6 @@ SmlDx11_Initialize(sml_window Window)
 
     Sml_Assert(SUCCEEDED(Status));
 
-    sml_pipeline_desc PipelineDesc = Sml_GetDefaultPipelineDesc(SmlRenderer_DirectX11);
-    SmlPipeline.BackendData         = SmlDx11_CreatePipeline(PipelineDesc);
     sml_dx11_pipeline *Dx11Pipeline = (sml_dx11_pipeline*)SmlPipeline.BackendData;
 
     // Upload a simple cube
@@ -173,56 +173,9 @@ SmlDx11_Initialize(sml_window Window)
         Dx11.Context->Unmap(Dx11Pipeline->IndexBuffer.Handle, 0);
     }
 
-    sml_material_desc MaterialDesc = Sml_GetDefaultMaterialDesc();
-    Dx11Pipeline->Material         = SmlDx11_CreateMaterial(MaterialDesc);
-}
+    auto *DX11Renderer     = (sml_renderer*)malloc(sizeof(sml_renderer));
+    DX11Renderer->Playback = SmlDx11_Playback;
+    DX11Renderer->Setup    = SmlDx11_Setup;
 
-// WARN: This code is weird. I don't like the camera code at all.
-
-static void
-SmlDx11_Render(sml_matrix4 *Camera)
-{
-    ID3D11DeviceContext *Ctx = Dx11.Context;
-
-    sml_f32 ClearColor[4] = { 0.1f, 0.1f, 0.1f, 1.0f };
-    Ctx->ClearRenderTargetView(Dx11.RenderView, ClearColor);
-    Ctx->ClearDepthStencilView(Dx11.DepthView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
-                               1.0f, 0);
-
-    Ctx->OMSetRenderTargets(1, &Dx11.RenderView, Dx11.DepthView);
-
-    Ctx->RSSetViewports(1, &Dx11.Viewport);
-
-    // --------------------------------------------------------------------------------
-    if(Dx11.CameraBuffer == nullptr)
-    {
-        HRESULT Status = S_OK;
-
-        D3D11_BUFFER_DESC CBufferDesc = {};
-        CBufferDesc.ByteWidth         = sizeof(sml_matrix4);
-        CBufferDesc.BindFlags         = D3D11_BIND_CONSTANT_BUFFER;
-        CBufferDesc.Usage             = D3D11_USAGE_DYNAMIC;
-        CBufferDesc.CPUAccessFlags    = D3D11_CPU_ACCESS_WRITE;
-
-        Status = Dx11.Device->CreateBuffer(&CBufferDesc, nullptr, &Dx11.CameraBuffer);
-        Sml_Assert(SUCCEEDED(Status));
-    }
-
-    D3D11_MAPPED_SUBRESOURCE Mapped;
-    Ctx->Map(Dx11.CameraBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
-
-    memcpy(Mapped.pData, Camera, sizeof(sml_matrix4));
-    Ctx->Unmap(Dx11.CameraBuffer, 0);
-
-    Ctx->VSSetConstantBuffers(0, 1, &Dx11.CameraBuffer);
-    // --------------------------------------------------------------------------------
-
-    // TODO: Add topology in the pipeline
-    Ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-    sml_dx11_pipeline *Pipeline = (sml_dx11_pipeline*)SmlPipeline.BackendData;
-    SmlDx11_BindPipeline(Pipeline);
-
-    Ctx->DrawIndexed(CubeMesh.IndexCount, 0, 0);
-    Dx11.SwapChain->Present(1, 0);
+    return DX11Renderer;
 }
