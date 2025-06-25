@@ -25,31 +25,6 @@ enum SmlMaterial_Type
     SmlMaterial_Count,
 };
 
-// Commands -------------------
-
-enum SmlRenderCommand_Type
-{
-    SmlRenderCommand_None,
-
-    SmlRenderCommand_Mesh,
-
-    SmlRenderCommand_Count,
-};
-
-struct sml_render_command_header
-{
-    SmlRenderCommand_Type Type;
-    u32                   Size;
-};
-
-struct sml_render_mesh_payload
-{
-    sml_tri_mesh *Mesh;
-    sml_u32       PipelineHandle;
-};
-
-// ----------------------------
-
 // Pipeline/Resource ----------
 enum SmlShader_Flag
 {
@@ -76,13 +51,13 @@ struct sml_shader_desc
 {
     SmlShader_Type Type;
     sml_bit_field  Flags;
+    const char    *EntryPoint;
 
     union
     {
         const char *Path;
         struct
         {
-            const char *EntryPoint;
             const char *ByteCode;
             size_t      Size;
         } Buffer;
@@ -146,11 +121,27 @@ struct sml_pipeline
 
 // ----------------------------
 
+struct sml_renderer;
+using sml_renderer_entry_function = void(*)(sml_renderer *Renderer);
+
 struct sml_renderer
 {
-    void (*Initialize)  (sml_window Window);
+    // Offline Push Buffer
+    void  *OfflinePushBase;
+    size_t OfflinePushSize;
+    size_t OfflinePushCapacity;
 
-    void (*Render)      (sml_matrix4 *Camera);
+    // Runtime Push Buffer
+    void  *RuntimePushBase;
+    size_t RuntimePushSize;
+    size_t RuntimePushCapacity;
+
+    // Misc data
+    sml_matrix4 CameraData;
+
+    // Entry points
+    sml_renderer_entry_function Playback;
+    sml_renderer_entry_function Setup;
 };
 
 // ===================================
@@ -295,7 +286,7 @@ Sml_GetDefaultShaderSize(SmlRenderer_Backend Backend)
     }
 }
 
-// BUG: This won't work + the API is a bit annoying to work with.
+// WARN: This code is ugly
 
 static sml_pipeline_desc
 Sml_GetDefaultPipelineDesc(SmlRenderer_Backend Backend)
@@ -303,19 +294,19 @@ Sml_GetDefaultPipelineDesc(SmlRenderer_Backend Backend)
     sml_pipeline_desc        PipelineDesc  = {};
     static sml_shader_desc   ShaderDesc[2] = {};
 
-    sml_shader_desc *VShaderDesc        = &ShaderDesc[0];
-    VShaderDesc->Type                   = SmlShader_Vertex;
-    VShaderDesc->Flags                  = SmlShader_CompileFromBuffer;
-    VShaderDesc->Info.Buffer.EntryPoint = "VSMain";
-    VShaderDesc->Info.Buffer.ByteCode   = Sml_GetDefaultShaderByteCode(Backend);
-    VShaderDesc->Info.Buffer.Size       = Sml_GetDefaultShaderSize(Backend);
+    sml_shader_desc *VShaderDesc      = &ShaderDesc[0];
+    VShaderDesc->Type                 = SmlShader_Vertex;
+    VShaderDesc->Flags                = SmlShader_CompileFromBuffer;
+    VShaderDesc->EntryPoint           = "VSMain";
+    VShaderDesc->Info.Buffer.ByteCode = Sml_GetDefaultShaderByteCode(Backend);
+    VShaderDesc->Info.Buffer.Size     = Sml_GetDefaultShaderSize(Backend);
 
-    sml_shader_desc *PShaderDesc        = &ShaderDesc[1];
-    PShaderDesc->Type                   = SmlShader_Pixel;
-    PShaderDesc->Flags                  = SmlShader_CompileFromBuffer;
-    PShaderDesc->Info.Buffer.EntryPoint = "PSMain";
-    PShaderDesc->Info.Buffer.ByteCode   = Sml_GetDefaultShaderByteCode(Backend);
-    PShaderDesc->Info.Buffer.Size       = Sml_GetDefaultShaderSize(Backend);
+    sml_shader_desc *PShaderDesc      = &ShaderDesc[1];
+    PShaderDesc->Type                 = SmlShader_Pixel;
+    PShaderDesc->Flags                = SmlShader_CompileFromBuffer;
+    PShaderDesc->EntryPoint           = "PSMain";
+    PShaderDesc->Info.Buffer.ByteCode = Sml_GetDefaultShaderByteCode(Backend);
+    PShaderDesc->Info.Buffer.Size     = Sml_GetDefaultShaderSize(Backend);
 
     static sml_pipeline_layout Layout[3] = 
     {
@@ -370,6 +361,7 @@ Sml_GetDefaultMaterialDesc()
 // ===================================
 
 #include "sml_camera.cpp"
+#include "sml_commands.cpp"
 
 // ===================================
 // Renderer specific files
@@ -384,8 +376,10 @@ Sml_GetDefaultMaterialDesc()
 // ===================================
 
 static sml_renderer*
-Sml_CreateRenderer(SmlRenderer_Backend Backend)
+Sml_CreateRenderer(SmlRenderer_Backend Backend, sml_window Window)
 {
+    sml_renderer *Renderer = nullptr;
+
     switch(Backend)
     {
 
@@ -393,7 +387,7 @@ Sml_CreateRenderer(SmlRenderer_Backend Backend)
 
     case SmlRenderer_DirectX11:
     {
-        return &DirectX11_Implementation;
+        Renderer = SmlDx11_Initialize(Window);
     } break;
 
 #endif
@@ -401,8 +395,15 @@ Sml_CreateRenderer(SmlRenderer_Backend Backend)
     default:
     {
         Sml_Assert(!"Backend not available for this platform.");
+        return nullptr;
     } break;
+
     }
 
-    return nullptr;
+    // TODO: Allocate these
+    Renderer->RuntimePushBase     = nullptr;
+    Renderer->RuntimePushSize     = 0;
+    Renderer->RuntimePushCapacity = 0;
+
+    return Renderer;
 }
