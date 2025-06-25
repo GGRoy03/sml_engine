@@ -17,12 +17,18 @@ typedef float sml_f32;
 #define STB_IMAGE_IMPLEMENTATION
 #include "third_party/stb_image.h"
 
+enum SmlData_Type
+{
+    SmlData_Vector2Float,
+    SmlData_Vector3Float,
+};
+
 // Math
 #include "math/vector.cpp"
 #include "math/matrix.cpp"
 
 // Rendering
-#include "rendering/meshes.cpp"
+#include "rendering/sml_meshes.cpp"
 
 #include "platform/sml_platform.cpp"
-#include "rendering/render.cpp"
+#include "rendering/sml_rendering.cpp"

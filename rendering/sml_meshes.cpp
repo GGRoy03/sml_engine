@@ -16,7 +16,7 @@ struct sml_vertex
     sml_vector2 UV;
 };
 
-static sml_vertex Vertices[] =
+static sml_vertex CubeVertices[] =
 {
     // Front face (Z+)
     {{-0.5f, -0.5f,  0.5f}, { 0.0f,  0.0f,  1.0f}, {0.0f, 1.0f}},
@@ -55,7 +55,7 @@ static sml_vertex Vertices[] =
     {{-0.5f, -0.5f,  0.5f}, { 0.0f, -1.0f,  0.0f}, {0.0f, 0.0f}},
 };
 
-static u32 Indices[] =
+static u32 CubeIndices[] =
 {
     // Front face
     0, 1, 2,   0, 2, 3,
@@ -75,11 +75,31 @@ static sml_tri_mesh
 GetCubeMesh()
 {
     sml_tri_mesh Mesh   = {};
-    Mesh.IndexCount     = sizeof(Indices) / sizeof(u32);
-    Mesh.VertexData     = Vertices;
-    Mesh.VertexDataSize = sizeof(Vertices);
-    Mesh.IndexData      = Indices;
-    Mesh.IndexDataSize  = sizeof(Indices);
+    Mesh.IndexCount     = sizeof(CubeIndices) / sizeof(sml_u32);
+    Mesh.VertexData     = CubeVertices;
+    Mesh.VertexDataSize = sizeof(CubeVertices);
+    Mesh.IndexData      = CubeIndices;
+    Mesh.IndexDataSize  = sizeof(CubeIndices);
 
     return Mesh;
 }
+
+// New API
+
+enum SmlTopology_Type
+{
+    SmlTopology_Unknown,
+
+    SmlTopology_TriangleList,
+};
+
+struct sml_static_mesh
+{
+    SmlTopology_Type Topology;
+
+    void  *VertexData;
+    size_t VertexDataSize;
+
+    void  *IndexData;
+    size_t IndexDataSize;
+};
