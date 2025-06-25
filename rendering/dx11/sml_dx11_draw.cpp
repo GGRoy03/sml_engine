@@ -25,7 +25,6 @@ SmlDx11_DrawClearScreen(sml_draw_command_clear *Payload)
 
 // WARN:
 // 1) This is a very simple implementation which does not bind any material
-//
 
 static void
 SmlDx11_DrawStaticGroup(sml_draw_command_static_group *Payload)

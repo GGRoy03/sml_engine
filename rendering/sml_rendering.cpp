@@ -107,6 +107,8 @@ struct sml_pbr_material_constant
     sml_f32     Padding[3];
 };
 
+using sml_material_handle = sml_u32;
+
 struct sml_material_desc
 {
     sml_texture_desc          Textures[SmlMaterial_Count];

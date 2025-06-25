@@ -64,7 +64,6 @@ SmlDx11_GetDXGIFormat(SmlData_Type Format)
 // Directx11 Files
 // ===================================
 
-#include "sml_dx11_pipeline.cpp"
 #include "sml_dx11_setup.cpp"
 #include "sml_dx11_draw.cpp"
 
@@ -146,32 +145,10 @@ SmlDx11_Initialize(sml_window Window)
     DepthTexDescV.ViewDimension                 = D3D11_DSV_DIMENSION_TEXTURE2D;
     DepthTexDescV.Texture2D.MipSlice            = 0;
 
-    Status = Dx11.Device->CreateDepthStencilView(Dx11.DepthTexture, &DepthTexDescV, &Dx11.DepthView);
+    Status = Dx11.Device->CreateDepthStencilView(Dx11.DepthTexture, &DepthTexDescV,
+                                                 &Dx11.DepthView);
 
     Sml_Assert(SUCCEEDED(Status));
-
-    sml_dx11_pipeline *Dx11Pipeline = (sml_dx11_pipeline*)SmlPipeline.BackendData;
-
-    // Upload a simple cube
-    {
-        CubeMesh = GetCubeMesh();
-
-        D3D11_MAPPED_SUBRESOURCE VMapped;
-        Status = Dx11.Context->Map(Dx11Pipeline->VertexBuffer.Handle, 0,
-                                   D3D11_MAP_WRITE_DISCARD, 0, &VMapped);
-
-        memcpy(VMapped.pData, CubeMesh.VertexData, CubeMesh.VertexDataSize);
-
-        Dx11.Context->Unmap(Dx11Pipeline->VertexBuffer.Handle, 0);
-
-        D3D11_MAPPED_SUBRESOURCE IMapped;
-        Status = Dx11.Context->Map(Dx11Pipeline->IndexBuffer.Handle, 0,
-                                   D3D11_MAP_WRITE_DISCARD, 0, &IMapped);
-
-        memcpy(IMapped.pData, CubeMesh.IndexData, CubeMesh.IndexDataSize);
-
-        Dx11.Context->Unmap(Dx11Pipeline->IndexBuffer.Handle, 0);
-    }
 
     auto *DX11Renderer     = (sml_renderer*)malloc(sizeof(sml_renderer));
     DX11Renderer->Playback = SmlDx11_Playback;
