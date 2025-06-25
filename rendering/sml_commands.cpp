@@ -21,10 +21,12 @@ struct sml_setup_command_header
 
 struct sml_setup_command_static_group
 {
-    sml_pipeline_desc *PipelineDesc;
+    sml_pipeline_desc *Pipeline;
 
     sml_static_mesh *Meshes[4];
     sml_u32          MeshCount;
+
+    sml_u32 Handle;
 
     size_t VertexDataSize;
     size_t IndexDataSize;
@@ -37,12 +39,11 @@ struct sml_static_group_builder
     sml_u32            MeshCount;
 };
 
-
 // ===================================
 //  Global Variables
 // ===================================
 
-// TODO: Some cache for static groups
+static sml_u32 NextStaticCacheHandle;
 
 // ===================================
 // Helper Functions
@@ -82,6 +83,7 @@ Sml_AddMeshToBuilder(sml_static_group_builder *Builder, sml_static_mesh *Mesh)
 
 // WARN:
 // 1) This does not free the meshes / does not use the engine's allocator.
+// 2) Does not return the correct handle yet.
 
 static sml_u32
 Sml_SetupStaticGroup(sml_renderer *Renderer, sml_static_group_builder *Builder)
@@ -91,8 +93,9 @@ Sml_SetupStaticGroup(sml_renderer *Renderer, sml_static_group_builder *Builder)
     Header.Size                     = sizeof(sml_setup_command_static_group);
 
     sml_setup_command_static_group Payload = {};
-    Payload.PipelineDesc                   = Builder->Pipeline;
+    Payload.Pipeline                       = Builder->Pipeline;
     Payload.MeshCount                      = Builder->MeshCount;
+    Payload.Handle                         = NextStaticCacheHandle;
 
     // Meshes
     for(u32 Index = 0; Index < Builder->MeshCount; Index++)
@@ -107,7 +110,9 @@ Sml_SetupStaticGroup(sml_renderer *Renderer, sml_static_group_builder *Builder)
     Sml_PushToOfflineBuffer(Renderer, &Header , sizeof(sml_setup_command_header));
     Sml_PushToOfflineBuffer(Renderer, &Payload, Header.Size);
 
-    return 0;
+    ++NextStaticCacheHandle;
+
+    return Payload.Handle;
 }
 
 ///////////////////////////////////////////////////////
@@ -137,6 +142,11 @@ struct sml_draw_command_clear
     sml_vector4 Color;
 };
 
+struct sml_draw_command_static_group
+{
+    sml_u32 Handle;
+};
+
 // ===================================
 // Helper Functions
 // ===================================
@@ -163,7 +173,7 @@ Sml_PushToRuntimeCommandBuffer(sml_renderer *Renderer, void *Data, size_t Size)
 // ===================================
 
 static void
-Sml_ClearScreen(sml_renderer *Renderer, sml_vector4 Color)
+Sml_DrawClearScreen(sml_renderer *Renderer, sml_vector4 Color)
 {
     sml_draw_command_header Header = {};
     Header.Type                    = SmlDrawCommand_Clear;
@@ -173,5 +183,21 @@ Sml_ClearScreen(sml_renderer *Renderer, sml_vector4 Color)
     Payload.Color                  = Color;
 
     Sml_PushToRuntimeCommandBuffer(Renderer, &Header, sizeof(sml_draw_command_header));
+    Sml_PushToRuntimeCommandBuffer(Renderer, &Payload, Header.Size);
+}
+
+static void
+Sml_DrawStaticGroup(sml_renderer *Renderer, sml_u32 Handle)
+{
+    size_t PayloadSize = sizeof(sml_draw_command_static_group);
+
+    sml_draw_command_header Header = {};
+    Header.Type                    = SmlDrawCommand_StaticGroup;
+    Header.Size                    = (sml_u32)PayloadSize;
+
+    sml_draw_command_static_group Payload = {};
+    Payload.Handle                        = Handle;
+
+    Sml_PushToRuntimeCommandBuffer(Renderer, &Header , PayloadSize);
     Sml_PushToRuntimeCommandBuffer(Renderer, &Payload, Header.Size);
 }
