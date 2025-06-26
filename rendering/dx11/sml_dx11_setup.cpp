@@ -5,23 +5,6 @@
 // NOTE: Temporary include
 #include <unordered_map>
 
-// WARN:
-// 1) Should probably hold an optimized draw-list of some sort
-// when we add materials.
-
-struct sml_dx11_static_group_cached_state
-{
-    ID3D11Buffer *VertexBuffer;
-    ID3D11Buffer *IndexBuffer;
-
-    ID3D11VertexShader *VShader;
-    ID3D11PixelShader  *PShader;
-    ID3D11InputLayout  *InputLayout;
-
-    UINT    Stride;
-    sml_u32 IndexCount;
-};
-
 struct sml_dx11_sampled_texture
 {
     ID3D11ShaderResourceView *View;
@@ -41,6 +24,26 @@ struct sml_dx11_pbr_material
     ID3D11Buffer             *GPUHandle;
 };
 
+
+// WARN:
+// 1) Should probably hold an optimized draw-list of some sort
+// when we add materials.
+
+struct sml_dx11_static_group_cached_state
+{
+    ID3D11Buffer *VertexBuffer;
+    ID3D11Buffer *IndexBuffer;
+
+    ID3D11VertexShader *VShader;
+    ID3D11PixelShader  *PShader;
+    ID3D11InputLayout  *InputLayout;
+
+    UINT    Stride;
+    sml_u32 IndexCount;
+
+    sml_dx11_pbr_material Material;
+};
+
 // ===================================
 //  Global Variables
 // ===================================
@@ -49,10 +52,6 @@ struct sml_dx11_pbr_material
 // This will probably change, but for simplicity the map should
 // be more than fine.
 std::unordered_map<sml_u32, sml_dx11_static_group_cached_state> StaticCache;
-
-// NOTE: We also hold a map of materials for now. It's not that great.
-// But it should do the work for prototyping.
-std::unordered_map<sml_material_handle, sml_dx11_pbr_material> MaterialCache;
 
 // ===================================
 // Internal Helpers
@@ -288,7 +287,7 @@ SmlDx11_CreatePixelShader(sml_shader_desc *Shader)
 
 static ID3D11InputLayout*
 SmlDx11_CreateInputLayout(sml_pipeline_layout *Layout, sml_u32 Count,
-                          ID3DBlob *VertexBlob)
+                          ID3DBlob *VertexBlob, UINT *OutStride)
 {
     HRESULT Status = S_OK;
     UINT    Stride = 0;
@@ -321,6 +320,8 @@ SmlDx11_CreateInputLayout(sml_pipeline_layout *Layout, sml_u32 Count,
         return nullptr;
     }
 
+    *OutStride = Stride;
+
     return InputLayout;
 }
 
@@ -329,7 +330,9 @@ SmlDx11_CreateInputLayout(sml_pipeline_layout *Layout, sml_u32 Count,
 // ===================================
 
 // WARN:
-// This should probably sort the meshes by material.
+// 1) This should probably sort the meshes by material when we allow
+//    multiple materials.
+// 2) Uses malloc/free instead of the engine's allocator.
 
 static inline void
 SmlDx11_SetupStaticGroup(sml_setup_command_static_group *Payload)
@@ -352,7 +355,7 @@ SmlDx11_SetupStaticGroup(sml_setup_command_static_group *Payload)
              CachedState.VShader = SmlDx11_CreateVertexShader(Shader, &VertexBlob);
              CachedState.InputLayout = 
                    SmlDx11_CreateInputLayout(Pipeline->Layout, Pipeline->LayoutCount,
-                                             VertexBlob);
+                                             VertexBlob, &CachedState.Stride);
 
              VertexBlob->Release();
          } break;
@@ -370,7 +373,57 @@ SmlDx11_SetupStaticGroup(sml_setup_command_static_group *Payload)
          }
     }
 
-    // TODO: Missing a lot of the data for the cached state.
+    // NOTE: Make this a platform agnostic function.
+    auto  *CPUVertexData = (sml_u8*)malloc(Payload->VertexDataSize);
+    size_t VertexOffset  = 0;
+
+    auto  *CPUIndexData = (sml_u8*)malloc(Payload->IndexDataSize);
+    size_t IndexOffset  = 0;
+
+    for(u32 Index = 0; Index < Payload->MeshCount; Index++)
+    {
+        sml_static_mesh *Mesh       = Payload->Meshes[Index];
+        size_t           VertexSize = Mesh->VertexDataSize;
+        size_t           IndexSize  = Mesh->IndexDataSize;
+
+        memcpy(CPUVertexData + VertexOffset, Mesh->VertexData, VertexSize);
+        memcpy(CPUIndexData  + IndexOffset , Mesh->IndexData , IndexSize );
+
+        VertexOffset += VertexSize;
+        IndexOffset  += IndexSize;
+
+        CachedState.IndexCount += Mesh->IndexCount;
+    }
+
+    HRESULT Status = S_OK;
+
+    D3D11_BUFFER_DESC VDesc = {};
+    VDesc.ByteWidth         = (UINT)Payload->VertexDataSize;
+    VDesc.Usage             = D3D11_USAGE_IMMUTABLE;
+    VDesc.BindFlags         = D3D11_BIND_VERTEX_BUFFER;
+
+    D3D11_SUBRESOURCE_DATA VertexData = {};
+    VertexData.pSysMem                = CPUVertexData;
+
+    Status = Dx11.Device->CreateBuffer(&VDesc, &VertexData,
+                                       &CachedState.VertexBuffer);
+    Sml_Assert(SUCCEEDED(Status));
+
+    D3D11_BUFFER_DESC IDesc = {};
+    IDesc.ByteWidth         = (UINT)Payload->IndexDataSize;
+    IDesc.Usage             = D3D11_USAGE_IMMUTABLE;
+    IDesc.BindFlags         = D3D11_BIND_INDEX_BUFFER;
+
+    D3D11_SUBRESOURCE_DATA IndexData = {};
+    VertexData.pSysMem               = CPUIndexData;
+
+    Status = Dx11.Device->CreateBuffer(&IDesc, &VertexData, &CachedState.IndexBuffer);
+    Sml_Assert(SUCCEEDED(Status));
+
+    sml_material_desc MaterialDesc = Sml_GetDefaultMaterialDesc();
+    CachedState.Material           = SmlDx11_CreateMaterial(MaterialDesc);
+
+    StaticCache[Payload->Handle] = CachedState;
 }
 
 static void 
@@ -390,9 +443,9 @@ SmlDx11_Setup(sml_renderer *Renderer)
 
         case SmlSetupCommand_StaticGroup:
         {
-            auto *Payload = (sml_setup_command_static_group*)(CmdPtr + Offset);
+            auto* Payload = (sml_setup_command_static_group*)(CmdPtr + Offset);
             SmlDx11_SetupStaticGroup(Payload);
-        };
+        } break;
 
         default:
         {

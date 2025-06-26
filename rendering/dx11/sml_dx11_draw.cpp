@@ -37,13 +37,29 @@ SmlDx11_DrawStaticGroup(sml_draw_command_static_group *Payload)
     UINT                 Offset  = 0;
 
     // IA
+    Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     Context->IASetInputLayout(CachedState.InputLayout);
-    Context->IASetIndexBuffer(CachedState.IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
     Context->IASetVertexBuffers(0, 1, &CachedState.VertexBuffer, &Stride, &Offset);
+    Context->IASetIndexBuffer(CachedState.IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
     // Shaders
     Context->VSSetShader(CachedState.VShader, nullptr, 0);
     Context->PSSetShader(CachedState.PShader, nullptr, 0);
+
+    // Material
+    sml_dx11_pbr_material* Material = &CachedState.Material;
+    for (u32 Index = 0; Index < SmlMaterial_Count; Index++)
+    {
+        sml_dx11_sampled_material* Sampled = Material->Sampled + Index;
+        ID3D11ShaderResourceView*  View    = Sampled->Texture.View;
+
+        if (View)
+        {
+            Context->PSSetShaderResources(Sampled->Texture.Slot, 1, &View);
+        }
+    }
+    Context->PSSetConstantBuffers(1, 1, &Material->GPUHandle);
+    Context->PSSetSamplers(0, 1, &Material->SamplerState);
 
     // Draw
     Context->DrawIndexed(CachedState.IndexCount, 0, 0);
@@ -108,10 +124,7 @@ SmlDx11_Playback(sml_renderer *Renderer)
         {
             auto *Payload = (sml_draw_command_static_group*)(CmdPtr + Offset);
             SmlDx11_DrawStaticGroup(Payload);
-
-            // NOTE: Basically this uses the handle from the payload
-            // to get some data from the static cache and render that data.
-        };
+        } break;
 
         default:
         {

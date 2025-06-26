@@ -377,6 +377,10 @@ Sml_GetDefaultMaterialDesc()
 // User API
 // ===================================
 
+// WARN:
+// 1) Uses malloc instead of the engine's allocator.
+// 2) Uses macros that do not exist in this code base
+
 static sml_renderer*
 Sml_CreateRenderer(SmlRenderer_Backend Backend, sml_window Window)
 {
@@ -402,10 +406,13 @@ Sml_CreateRenderer(SmlRenderer_Backend Backend, sml_window Window)
 
     }
 
-    // TODO: Allocate these
-    Renderer->RuntimePushBase     = nullptr;
+    Renderer->RuntimePushBase     = malloc(Kilobytes(5));
     Renderer->RuntimePushSize     = 0;
-    Renderer->RuntimePushCapacity = 0;
+    Renderer->RuntimePushCapacity = Kilobytes(5);
+
+    Renderer->OfflinePushBase     = malloc(Kilobytes(5));
+    Renderer->OfflinePushSize     = 0;
+    Renderer->OfflinePushCapacity = Kilobytes(5);
 
     return Renderer;
 }

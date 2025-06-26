@@ -43,7 +43,7 @@ struct sml_static_group_builder
 //  Global Variables
 // ===================================
 
-static sml_u32 NextStaticCacheHandle;
+static sml_u32 NextStaticCacheHandle = 1;
 
 // ===================================
 // Helper Functions
@@ -198,6 +198,6 @@ Sml_DrawStaticGroup(sml_renderer *Renderer, sml_u32 Handle)
     sml_draw_command_static_group Payload = {};
     Payload.Handle                        = Handle;
 
-    Sml_PushToRuntimeCommandBuffer(Renderer, &Header , PayloadSize);
+    Sml_PushToRuntimeCommandBuffer(Renderer, &Header , sizeof(sml_draw_command_header));
     Sml_PushToRuntimeCommandBuffer(Renderer, &Payload, Header.Size);
 }
