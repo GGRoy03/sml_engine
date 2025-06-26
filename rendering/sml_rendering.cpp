@@ -25,7 +25,6 @@ enum SmlMaterial_Type
     SmlMaterial_Count,
 };
 
-// Pipeline/Resource ----------
 enum SmlShader_Flag
 {
     SmlShader_CompileFromBuffer = 1 << 0,
@@ -84,7 +83,6 @@ struct sml_texture_desc
     sml_bit_field Flags;
     sml_u32       BindSlot;
 
-    // NOTE: Maybe this shouldn't be here.
     SmlMaterial_Type MaterialType;
 
     union
@@ -121,7 +119,6 @@ struct sml_pipeline
     void *BackendData;
 };
 
-// ----------------------------
 
 struct sml_renderer;
 using sml_renderer_entry_function = void(*)(sml_renderer *Renderer);
@@ -237,18 +234,6 @@ float4 PSMain(VSOutput IN) : SV_Target
 // Helper Functions
 // ===================================
 
-static const char*
-Sml_ShaderAsString(SmlShader_Type Type)
-{
-    switch(Type)
-    {
-
-    case SmlShader_Vertex: return "Vertex Shader\n";
-    case SmlShader_Pixel : return "Pixel Shader\n";
-
-    }
-}
-
 static size_t
 Sml_GetSizeOfDataType(SmlData_Type Type)
 {
@@ -285,10 +270,12 @@ Sml_GetDefaultShaderSize(SmlRenderer_Backend Backend)
 
     case SmlRenderer_DirectX11: return strlen(SmlDefaultShader_HLSL);
 
+    default: return 0;
+
     }
 }
 
-// WARN: This code is ugly
+// WARN: This needs to go.
 
 static sml_pipeline_desc
 Sml_GetDefaultPipelineDesc(SmlRenderer_Backend Backend)
@@ -324,6 +311,8 @@ Sml_GetDefaultPipelineDesc(SmlRenderer_Backend Backend)
 
     return PipelineDesc;
 }
+
+// WARN: This needs to go.
 
 static sml_material_desc
 Sml_GetDefaultMaterialDesc()
@@ -406,13 +395,13 @@ Sml_CreateRenderer(SmlRenderer_Backend Backend, sml_window Window)
 
     }
 
-    Renderer->RuntimePushBase     = malloc(Kilobytes(5));
+    Renderer->RuntimePushBase     = malloc(Sml_Kilobytes(5));
     Renderer->RuntimePushSize     = 0;
-    Renderer->RuntimePushCapacity = Kilobytes(5);
+    Renderer->RuntimePushCapacity = Sml_Kilobytes(5);
 
-    Renderer->OfflinePushBase     = malloc(Kilobytes(5));
+    Renderer->OfflinePushBase     = malloc(Sml_Kilobytes(5));
     Renderer->OfflinePushSize     = 0;
-    Renderer->OfflinePushCapacity = Kilobytes(5);
+    Renderer->OfflinePushCapacity = Sml_Kilobytes(5);
 
     return Renderer;
 }

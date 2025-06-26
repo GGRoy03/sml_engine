@@ -89,10 +89,11 @@ Sml_UpdateCamera(sml_camera_perspective *Camera, sml_window Window,
 
         if(!SmlVec3_IsZero(Movement))
         {
-            sml_vector3 NormMov = SmlVec3_Normalize(Movement);
-            Movement            = SmlVec3_Scale(NormMov, Camera->Speed);
-            Camera->Position   += Movement;
-            Camera->Target      = Camera->Position + Forward;
+            sml_vector3 Normalized = SmlVec3_Normalize(Movement);
+            Movement               = SmlVec3_Scale(Normalized, Camera->Speed);
+
+            Camera->Position += Movement;
+            Camera->Target    = Camera->Position + Forward;
         }
     }
 

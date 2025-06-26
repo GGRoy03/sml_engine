@@ -11,8 +11,9 @@ typedef float sml_f32;
 #define Sml_Unused(x) (void)(x)
 #define Sml_Assert(cond) do { if (!(cond)) __debugbreak(); } while (0)
 
-// WARN: Temp to test our math code.
-#define SML_USE_ROW_MAJOR
+#define Sml_Kilobytes(Amount) ((Amount) * 1024)
+#define Sml_Megabytes(Amount) (Kilobytes(Amount) * 1024)
+#define Sml_Gigabytes(Amount) (Megabytes(Amount) * 1024)
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "third_party/stb_image.h"
@@ -23,6 +24,9 @@ enum SmlData_Type
     SmlData_Vector3Float,
 };
 
+#pragma warning(push)
+#pragma warning(disable: 4505) // Unreferenced functions
+
 // Math
 #include "math/vector.cpp"
 #include "math/matrix.cpp"
@@ -32,3 +36,5 @@ enum SmlData_Type
 
 #include "platform/sml_platform.cpp"
 #include "rendering/sml_rendering.cpp"
+
+#pragma warning(pop)

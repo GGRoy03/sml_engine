@@ -1,14 +1,3 @@
-struct sml_tri_mesh
-{
-    u32   IndexCount;
-
-    void  *VertexData;
-    size_t VertexDataSize;
-
-    void  *IndexData;
-    size_t IndexDataSize;
-};
-
 struct sml_vertex
 {
     sml_vector3 Position;
@@ -70,21 +59,6 @@ static u32 CubeIndices[] =
     // Bottom face
     20, 21, 22, 20, 22, 23
 };
-
-static sml_tri_mesh
-GetCubeMesh()
-{
-    sml_tri_mesh Mesh   = {};
-    Mesh.IndexCount     = sizeof(CubeIndices) / sizeof(sml_u32);
-    Mesh.VertexData     = CubeVertices;
-    Mesh.VertexDataSize = sizeof(CubeVertices);
-    Mesh.IndexData      = CubeIndices;
-    Mesh.IndexDataSize  = sizeof(CubeIndices);
-
-    return Mesh;
-}
-
-// New API
 
 enum SmlTopology_Type
 {

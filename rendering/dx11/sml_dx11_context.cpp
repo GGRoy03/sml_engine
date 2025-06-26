@@ -41,7 +41,6 @@ static void SmlDx11_Playback(sml_renderer *Renderer);
 // ===================================
 
 static sml_dx11_context Dx11;
-static sml_tri_mesh     CubeMesh;
 
 // ===================================
 // Helper Functions
