@@ -60,17 +60,9 @@ static u32 CubeIndices[] =
     20, 21, 22, 20, 22, 23
 };
 
-enum SmlTopology_Type
+struct sml_mesh
 {
-    SmlTopology_Unknown,
-
-    SmlTopology_TriangleList,
-};
-
-struct sml_static_mesh
-{
-    SmlTopology_Type Topology;
-    sml_u32          IndexCount;
+    sml_u32 Material; // NOTE: Should be a material handle.
 
     void  *VertexData;
     size_t VertexDataSize;
@@ -78,17 +70,3 @@ struct sml_static_mesh
     void  *IndexData;
     size_t IndexDataSize;
 };
-
-static sml_static_mesh
-Sml_GetCubeMesh()
-{
-    sml_static_mesh Mesh = {};
-    Mesh.IndexCount      = sizeof(CubeIndices) / sizeof(sml_u32);
-    Mesh.VertexData      = CubeVertices;
-    Mesh.VertexDataSize  = sizeof(CubeVertices);
-    Mesh.IndexData       = CubeIndices;
-    Mesh.IndexDataSize   = sizeof(CubeIndices);
-    Mesh.Topology       = SmlTopology_TriangleList;
-
-    return Mesh;
-}

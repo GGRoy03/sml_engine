@@ -6,11 +6,15 @@
 //  Type Definitions
 // ===================================
 
+using sml_mesh_group_handle = sml_u32;
+using sml_material_handle   = sml_u32;
+
 enum SmlSetupCommand_Type
 {
     SmlSetupCommand_None,
 
-    SmlSetupCommand_StaticGroup,
+    SmlSetupCommand_Material,
+    SmlSetupCommand_MeshGroup,
 };
 
 struct sml_setup_command_header
@@ -19,24 +23,18 @@ struct sml_setup_command_header
     sml_u32              Size;
 };
 
-struct sml_setup_command_static_group
+struct sml_setup_command_material
 {
-    sml_pipeline_desc *Pipeline;
-
-    sml_static_mesh *Meshes[4];
-    sml_u32          MeshCount;
-
-    sml_u32 Handle;
-
-    size_t VertexDataSize;
-    size_t IndexDataSize;
+    sml_bit_field       Features;
+    sml_bit_field       Flags;
+    sml_material_handle Handle;
 };
 
-struct sml_static_group_builder
+struct sml_setup_command_mesh_group
 {
-    sml_pipeline_desc *Pipeline;
-    sml_static_mesh   *Meshes[4];
-    sml_u32            MeshCount;
+    sml_mesh             *Meshes;
+    sml_u32               MeshCount;
+    sml_mesh_group_handle Handle;
 };
 
 // ===================================
@@ -44,6 +42,8 @@ struct sml_static_group_builder
 // ===================================
 
 static sml_u32 NextStaticCacheHandle = 1;
+static sml_u32 NextMaterialHandle    = 1;
+static sml_u32 NextMeshGroupHandle   = 1;
 
 // ===================================
 // Helper Functions
@@ -70,47 +70,47 @@ Sml_PushToOfflineBuffer(sml_renderer *Renderer, void *Data, size_t Size)
 // User API 
 // ===================================
 
-// WARN:
-// 1) Does not handle overflows gracefully.
-
-static void
-Sml_AddMeshToBuilder(sml_static_group_builder *Builder, sml_static_mesh *Mesh)
+static sml_material_handle
+Sml_SetupMaterial(sml_renderer *Renderer, sml_bit_field Features,
+                  sml_bit_field Flags)
 {
-    Sml_Assert(Builder->MeshCount != 4 && Builder->Meshes);
+    size_t PayloadSize = sizeof(sml_setup_command_material);
 
-    Builder->Meshes[Builder->MeshCount++] = Mesh;
+    sml_setup_command_header Header = {};
+    Header.Type = SmlSetupCommand_Material;
+    Header.Size = (sml_u32)PayloadSize;
+
+    sml_setup_command_material Payload = {};
+    Payload.Features = Features;
+    Payload.Flags    = Flags;
+    Payload.Handle   = NextMaterialHandle;
+
+    Sml_PushToOfflineBuffer(Renderer, &Header, sizeof(sml_setup_command_header));
+    Sml_PushToOfflineBuffer(Renderer, &Header, PayloadSize);
+
+    ++NextMaterialHandle;
+
+    return Payload.Handle;
 }
 
-// WARN:
-// 1) This does not free the meshes / does not use the engine's allocator.
-// 2) Does not return the correct handle yet.
-
-static sml_u32
-Sml_SetupStaticGroup(sml_renderer *Renderer, sml_static_group_builder *Builder)
+static sml_mesh_group_handle
+Sml_SetupMeshGroup(sml_renderer *Renderer, sml_mesh *Meshes, sml_u32 MeshCount)
 {
+    size_t PayloadSize = sizeof(sml_setup_command_mesh_group);
+
     sml_setup_command_header Header = {};
-    Header.Type                     = SmlSetupCommand_StaticGroup;
-    Header.Size                     = sizeof(sml_setup_command_static_group);
+    Header.Type = SmlSetupCommand_MeshGroup;
+    Header.Size = (sml_u32)PayloadSize;
 
-    sml_setup_command_static_group Payload = {};
-    Payload.Pipeline                       = Builder->Pipeline;
-    Payload.MeshCount                      = Builder->MeshCount;
-    Payload.Handle                         = NextStaticCacheHandle;
+    sml_setup_command_mesh_group Payload = {};
+    Payload.Meshes    = Meshes;
+    Payload.MeshCount = MeshCount;
+    Payload.Handle    = NextMeshGroupHandle;
 
-    // Meshes
-    for(u32 Index = 0; Index < Builder->MeshCount; Index++)
-    {
-        sml_static_mesh *Mesh = Builder->Meshes[Index];
+    Sml_PushToOfflineBuffer(Renderer, &Header, sizeof(sml_setup_command_header));
+    Sml_PushToOfflineBuffer(Renderer, &Header, PayloadSize);
 
-        Payload.VertexDataSize += Mesh->VertexDataSize;
-        Payload.IndexDataSize  += Mesh->IndexDataSize;
-        Payload.Meshes[Index]   = Mesh;
-    }
-
-    Sml_PushToOfflineBuffer(Renderer, &Header , sizeof(sml_setup_command_header));
-    Sml_PushToOfflineBuffer(Renderer, &Payload, Header.Size);
-
-    ++NextStaticCacheHandle;
+    ++NextMeshGroupHandle;
 
     return Payload.Handle;
 }
@@ -128,7 +128,7 @@ enum SmlDrawCommand_Type
     SmlDrawCommand_None,
 
     SmlDrawCommand_Clear,
-    SmlDrawCommand_StaticGroup,
+    SmlDrawCommand_MeshGroup,
 };
 
 struct sml_draw_command_header
@@ -142,9 +142,9 @@ struct sml_draw_command_clear
     sml_vector4 Color;
 };
 
-struct sml_draw_command_static_group
+struct sml_draw_command_mesh_group
 {
-    sml_u32 Handle;
+    sml_mesh_group_handle Handle;
 };
 
 // ===================================
@@ -183,21 +183,5 @@ Sml_DrawClearScreen(sml_renderer *Renderer, sml_vector4 Color)
     Payload.Color                  = Color;
 
     Sml_PushToRuntimeCommandBuffer(Renderer, &Header, sizeof(sml_draw_command_header));
-    Sml_PushToRuntimeCommandBuffer(Renderer, &Payload, Header.Size);
-}
-
-static void
-Sml_DrawStaticGroup(sml_renderer *Renderer, sml_u32 Handle)
-{
-    size_t PayloadSize = sizeof(sml_draw_command_static_group);
-
-    sml_draw_command_header Header = {};
-    Header.Type                    = SmlDrawCommand_StaticGroup;
-    Header.Size                    = (sml_u32)PayloadSize;
-
-    sml_draw_command_static_group Payload = {};
-    Payload.Handle                        = Handle;
-
-    Sml_PushToRuntimeCommandBuffer(Renderer, &Header , sizeof(sml_draw_command_header));
     Sml_PushToRuntimeCommandBuffer(Renderer, &Payload, Header.Size);
 }

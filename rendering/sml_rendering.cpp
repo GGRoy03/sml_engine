@@ -25,20 +25,6 @@ enum SmlMaterial_Type
     SmlMaterial_Count,
 };
 
-enum SmlShader_Flag
-{
-    SmlShader_CompileFromBuffer = 1 << 0,
-    SmlShader_Debug             = 1 << 1,
-};
-
-enum SmlShader_Type
-{
-    SmlShader_Vertex,
-    SmlShader_Pixel,
-
-    SmlShaderType_Count,
-};
-
 struct sml_pipeline_layout
 {
     const char  *Name; 
@@ -46,29 +32,8 @@ struct sml_pipeline_layout
     SmlData_Type Format;
 };
 
-struct sml_shader_desc
-{
-    SmlShader_Type Type;
-    sml_bit_field  Flags;
-    const char    *EntryPoint;
-
-    union
-    {
-        const char *Path;
-        struct
-        {
-            const char *ByteCode;
-            size_t      Size;
-        } Buffer;
-
-    } Info;
-};
-
 struct sml_pipeline_desc
 {
-    sml_shader_desc *Shaders;
-    sml_u32          ShaderCount;
-
     sml_pipeline_layout *Layout;
     sml_u32              LayoutCount;
 };
@@ -275,84 +240,13 @@ Sml_GetDefaultShaderSize(SmlRenderer_Backend Backend)
     }
 }
 
-// WARN: This needs to go.
-
-static sml_pipeline_desc
-Sml_GetDefaultPipelineDesc(SmlRenderer_Backend Backend)
-{
-    sml_pipeline_desc        PipelineDesc  = {};
-    static sml_shader_desc   ShaderDesc[2] = {};
-
-    sml_shader_desc *VShaderDesc      = &ShaderDesc[0];
-    VShaderDesc->Type                 = SmlShader_Vertex;
-    VShaderDesc->Flags                = SmlShader_CompileFromBuffer;
-    VShaderDesc->EntryPoint           = "VSMain";
-    VShaderDesc->Info.Buffer.ByteCode = Sml_GetDefaultShaderByteCode(Backend);
-    VShaderDesc->Info.Buffer.Size     = Sml_GetDefaultShaderSize(Backend);
-
-    sml_shader_desc *PShaderDesc      = &ShaderDesc[1];
-    PShaderDesc->Type                 = SmlShader_Pixel;
-    PShaderDesc->Flags                = SmlShader_CompileFromBuffer;
-    PShaderDesc->EntryPoint           = "PSMain";
-    PShaderDesc->Info.Buffer.ByteCode = Sml_GetDefaultShaderByteCode(Backend);
-    PShaderDesc->Info.Buffer.Size     = Sml_GetDefaultShaderSize(Backend);
-
-    static sml_pipeline_layout Layout[3] = 
-    {
-        {"POSITION", 0, SmlData_Vector3Float},
-        {"NORMAL"  , 0, SmlData_Vector3Float},
-        {"TEXCOORD", 0, SmlData_Vector2Float},
-    };
-
-    PipelineDesc.Shaders     = ShaderDesc;
-    PipelineDesc.ShaderCount = 2;
-    PipelineDesc.Layout      = Layout;
-    PipelineDesc.LayoutCount = 3;
-
-    return PipelineDesc;
-}
-
-// WARN: This needs to go.
-
-static sml_material_desc
-Sml_GetDefaultMaterialDesc()
-{
-    sml_material_desc MaterialDesc = {};
-
-    sml_texture_desc *Albedo = MaterialDesc.Textures + SmlMaterial_Albedo;
-    Albedo->Info.Path        = "../../small_engine/data/textures/brick_wall/brick_wall_albedo.png";
-    Albedo->MaterialType     = SmlMaterial_Albedo;
-    Albedo->BindSlot         = 0;
-
-    sml_texture_desc *Normal = MaterialDesc.Textures + SmlMaterial_Normal;
-    Normal->Info.Path        = "../../small_engine/data/textures/brick_wall/brick_wall_normal.png";
-    Normal->MaterialType     = SmlMaterial_Normal;
-    Normal->BindSlot         = 1;
-
-    sml_texture_desc *Metallic = MaterialDesc.Textures + SmlMaterial_Metallic;
-    Metallic->Info.Path        = "../../small_engine/data/textures/brick_wall/brick_wall_metallic.png";
-    Metallic->MaterialType     = SmlMaterial_Metallic;
-    Metallic->BindSlot         = 2;
-
-    sml_texture_desc *Ambient = MaterialDesc.Textures + SmlMaterial_AmbientOcc;
-    Ambient->Info.Path        = "../../small_engine/data/textures/brick_wall/brick_wall_ao.png";
-    Ambient->MaterialType     = SmlMaterial_AmbientOcc;
-    Ambient->BindSlot         = 3;
-
-    sml_pbr_material_constant *Constants = &MaterialDesc.Constants;
-    Constants->AlbedoFactor              = sml_vector3(1.0f, 1.0f, 1.0f);
-    Constants->MetallicFactor            = 1.0f;
-    Constants->RoughnessFactor           = 1.0f;
-
-    return MaterialDesc;
-};
-
 // ===================================
 // Renderer agnostic files
 // ===================================
 
 #include "sml_camera.cpp"
 #include "sml_commands.cpp"
+#include "sml_shaders.cpp"
 
 // ===================================
 // Renderer specific files
@@ -373,7 +267,36 @@ Sml_GetDefaultMaterialDesc()
 static sml_renderer*
 Sml_CreateRenderer(SmlRenderer_Backend Backend, sml_window Window)
 {
-    sml_renderer *Renderer = nullptr;
+    sml_renderer     *Renderer        = nullptr;
+    sml_material_desc DefaultMaterial = {};
+    sml_pipeline_desc DefaultPipeline = {};
+
+    {
+        sml_texture_desc* Albedo = DefaultMaterial.Textures + SmlMaterial_Albedo;
+        Albedo->Info.Path = "../../small_engine/data/textures/brick_wall/brick_wall_albedo.png";
+        Albedo->MaterialType = SmlMaterial_Albedo;
+        Albedo->BindSlot = 0;
+
+        sml_texture_desc* Normal = DefaultMaterial.Textures + SmlMaterial_Normal;
+        Normal->Info.Path = "../../small_engine/data/textures/brick_wall/brick_wall_normal.png";
+        Normal->MaterialType = SmlMaterial_Normal;
+        Normal->BindSlot = 1;
+
+        sml_texture_desc* Metallic = DefaultMaterial.Textures + SmlMaterial_Metallic;
+        Metallic->Info.Path = "../../small_engine/data/textures/brick_wall/brick_wall_metallic.png";
+        Metallic->MaterialType = SmlMaterial_Metallic;
+        Metallic->BindSlot = 2;
+
+        sml_texture_desc* Ambient = DefaultMaterial.Textures + SmlMaterial_AmbientOcc;
+        Ambient->Info.Path = "../../small_engine/data/textures/brick_wall/brick_wall_ao.png";
+        Ambient->MaterialType = SmlMaterial_AmbientOcc;
+        Ambient->BindSlot = 3;
+
+        sml_pbr_material_constant* Constants = &DefaultMaterial.Constants;
+        Constants->AlbedoFactor = sml_vector3(1.0f, 1.0f, 1.0f);
+        Constants->MetallicFactor = 1.0f;
+        Constants->RoughnessFactor = 1.0f;
+    }
 
     switch(Backend)
     {
@@ -382,7 +305,7 @@ Sml_CreateRenderer(SmlRenderer_Backend Backend, sml_window Window)
 
     case SmlRenderer_DirectX11:
     {
-        Renderer = SmlDx11_Initialize(Window);
+        Renderer = SmlDx11_Initialize(Window, &DefaultPipeline, &DefaultMaterial);
     } break;
 
 #endif
