@@ -167,47 +167,6 @@ float4 PSMain(VSOutput IN) : SV_Target
 // Helper Functions
 // ===================================
 
-static size_t
-Sml_GetSizeOfDataType(SmlData_Type Type)
-{
-    switch(Type)
-    {
-
-    case SmlData_Vector2Float: return 2 * sizeof(sml_f32);
-    case SmlData_Vector3Float: return 3 * sizeof(sml_f32);
-
-    default: return 0;
-
-    }
-}
-
-static const char*
-Sml_GetDefaultShaderByteCode(SmlRenderer_Backend Backend)
-{
-    switch(Backend)
-    {
-
-    case SmlRenderer_DirectX11: return SmlDefaultShader_HLSL;
-
-    default: return nullptr;
-
-    }
-}
-
-static size_t
-Sml_GetDefaultShaderSize(SmlRenderer_Backend Backend)
-{
-
-    switch(Backend)
-    {
-
-    case SmlRenderer_DirectX11: return strlen(SmlDefaultShader_HLSL);
-
-    default: return 0;
-
-    }
-}
-
 static void
 SmlInt_PushToBackendResource(sml_backend_resource *Resource, void *Data, sml_u32 Index)
 {

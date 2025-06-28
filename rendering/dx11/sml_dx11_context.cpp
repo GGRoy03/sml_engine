@@ -46,19 +46,6 @@ static sml_dx11_context Dx11;
 // Helper Functions
 // ===================================
 
-static DXGI_FORMAT
-SmlDx11_GetDXGIFormat(SmlData_Type Format)
-{
-    switch(Format)
-    {
-
-    case SmlData_Vector2Float: return DXGI_FORMAT_R32G32_FLOAT;
-    case SmlData_Vector3Float: return DXGI_FORMAT_R32G32B32_FLOAT;
-
-    default: return DXGI_FORMAT_UNKNOWN;
-    }
-}
-
 // ===================================
 // Directx11 Files
 // ===================================

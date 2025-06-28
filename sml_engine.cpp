@@ -18,12 +18,6 @@ typedef float sml_f32;
 #define STB_IMAGE_IMPLEMENTATION
 #include "third_party/stb_image.h"
 
-enum SmlData_Type
-{
-    SmlData_Vector2Float,
-    SmlData_Vector3Float,
-};
-
 #pragma warning(push)
 #pragma warning(disable: 4505) // Unreferenced functions
 
