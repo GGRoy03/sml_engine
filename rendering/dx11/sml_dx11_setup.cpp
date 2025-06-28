@@ -1,6 +1,3 @@
-// WARN: Temporary include for simplicity
-#include <unordered_map>
-
 // ===================================
 // Type Definitions
 // ===================================
@@ -29,24 +26,24 @@ struct sml_dx11_material
     ID3D11Buffer             *ConstantBuffer;
 };
 
-struct sml_dx11_mesh_group
+struct sml_dx11_geometry
 {
-    sml_u32 MaterialIndex;
+    ID3D11Buffer *VertexBuffer;
+    ID3D11Buffer *IndexBuffer;
+    sml_u32       IndexCount;
+};
 
-    ID3D11Buffer* VertexBuffer;
-    ID3D11Buffer* IndexBuffer;
+struct sml_instance_data
+{
+    sml_vector3 Position;
+    sml_u32     Material;
+};
 
-    size_t  VertexBufferSize;
-    size_t  IndexBufferSize;
-    sml_u32 IndexCount;
-
-    // NOTE: These would be arrays which we iterate over
-    // to set the materials / constant buffers. We should sort 
-    // them correctly as to minimize state changes. Is a group
-    // only a single vertex buffer/index buffer?
-    sml_u32       MeshCount;
-    sml_mesh_info MeshInfo;
-    ID3D11Buffer* PerObject;
+struct sml_dx11_instance
+{
+    sml_instance_data Data;
+    sml_dx11_geometry Geometry;
+    ID3D11Buffer     *PerObject;
 };
 
 // ===================================
@@ -260,6 +257,7 @@ SmlDx11_SetupMaterial(sml_setup_command_material* Payload, sml_renderer *Rendere
     ID3DBlob* VSBlob = nullptr;
     Material.Variant.VertexShader =
         SmlDx11_CreateVertexShader(Payload->Flags, Defines, &VSBlob);
+
     Material.Variant.InputLayout =
         SmlDx11_CreateInputLayout(VSBlob, &Material.Variant.Stride);
 
@@ -340,87 +338,60 @@ SmlDx11_SetupMaterial(sml_setup_command_material* Payload, sml_renderer *Rendere
 }
 
 // WARN:
-// 1) This code needs some clean-ups
-// 2) Uses malloc/free
+// Missing geometry creation.
 
 static void
-SmlDx11_SetupMeshGroup(sml_setup_command_mesh_group* Payload, sml_renderer *Renderer)
+SmlDx11_SetupInstance(sml_setup_command_instance *Payload, sml_renderer *Renderer)
 {
-    Sml_Assert(Payload->Meshes);
-
-    sml_dx11_mesh_group Group = {};
-
-    for (u32 Index = 0; Index < Payload->MeshCount; Index++)
-    {
-        sml_mesh* Mesh = Payload->Meshes + Index;
-
-        Group.VertexBufferSize += Mesh->VertexDataSize;
-        Group.IndexBufferSize += Mesh->IndexDataSize;
-        Group.IndexCount += sml_u32(Mesh->IndexDataSize / sizeof(sml_u32));
-    }
-
-    sml_u8* CPUVertexBuffer = (sml_u8*)malloc(Group.VertexBufferSize);
-    sml_u8* CPUIndexBuffer = (sml_u8*)malloc(Group.IndexBufferSize);
-    size_t  VertexOffset = 0;
-    size_t  IndexOffset = 0;
-
-    for (u32 Index = 0; Index < Payload->MeshCount; Index++)
-    {
-        sml_mesh* Mesh = Payload->Meshes + Index;
-
-        memcpy(CPUVertexBuffer + VertexOffset, Mesh->VertexData, Mesh->VertexDataSize);
-        memcpy(CPUIndexBuffer + IndexOffset, Mesh->IndexData, Mesh->IndexDataSize);
-
-        VertexOffset += Mesh->VertexDataSize;
-        IndexOffset += Mesh->IndexDataSize;
-    }
+    sml_dx11_instance Instance = {};
+    Instance.Data.Position = Payload->Position;
+    Instance.Data.Material = Payload->Material;
 
     {
         D3D11_BUFFER_DESC Desc = {};
-        Desc.ByteWidth = (UINT)Group.VertexBufferSize;
-        Desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-        Desc.Usage = D3D11_USAGE_IMMUTABLE;
-
-        D3D11_SUBRESOURCE_DATA Data = {};
-        Data.pSysMem = CPUVertexBuffer;
-
-        HRESULT Status = Dx11.Device->CreateBuffer(&Desc, &Data, &Group.VertexBuffer);
-        Sml_Assert(SUCCEEDED(Status));
-    }
-
-    {
-        D3D11_BUFFER_DESC Desc = {};
-        Desc.ByteWidth = (UINT)Group.IndexBufferSize;
-        Desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-        Desc.Usage = D3D11_USAGE_IMMUTABLE;
-
-        D3D11_SUBRESOURCE_DATA Data = {};
-        Data.pSysMem = CPUIndexBuffer;
-
-        HRESULT Status = Dx11.Device->CreateBuffer(&Desc, &Data, &Group.IndexBuffer);
-        Sml_Assert(SUCCEEDED(Status));
-    }
-
-    {
-        D3D11_BUFFER_DESC Desc = {};
-        Desc.ByteWidth = sizeof(sml_matrix4);
-        Desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-        Desc.Usage = D3D11_USAGE_DYNAMIC;
+        Desc.ByteWidth      = sizeof(sml_matrix4);
+        Desc.BindFlags      = D3D11_BIND_CONSTANT_BUFFER;
+        Desc.Usage          = D3D11_USAGE_DYNAMIC;
         Desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
-        HRESULT Status = Dx11.Device->CreateBuffer(&Desc, nullptr, &Group.PerObject);
+        HRESULT Status = Dx11.Device->CreateBuffer(&Desc, NULL, &Instance.PerObject);
         Sml_Assert(SUCCEEDED(Status));
-
-        // TEST: Try with some simple hardcoded values
-        Group.MeshCount         = 1;
-        Group.MeshInfo.Position = sml_vector3(0.0f, 0.0f, 0.0f);
-        Group.MaterialIndex     = Payload->MaterialIndex;
     }
 
-    free(CPUVertexBuffer);
-    free(CPUIndexBuffer);
+    {
+        D3D11_BUFFER_DESC Desc = {};
+        Desc.ByteWidth = (UINT)Payload->Mesh->VertexDataSize;
+        Desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        Desc.Usage     = D3D11_USAGE_IMMUTABLE;
 
-    SmlInt_PushToBackendResource(&Renderer->Groups, &Group, Payload->GroupIndex);
+        D3D11_SUBRESOURCE_DATA Data = {};
+        Data.pSysMem = Payload->Mesh->VertexData;
+
+        HRESULT Status = 
+            Dx11.Device->CreateBuffer(&Desc, &Data, &Instance.Geometry.VertexBuffer);
+
+        Sml_Assert(SUCCEEDED(Status));
+    }
+
+    {
+        D3D11_BUFFER_DESC Desc = {};
+        Desc.ByteWidth = (UINT)Payload->Mesh->IndexDataSize;
+        Desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+        Desc.Usage     = D3D11_USAGE_IMMUTABLE;
+
+        D3D11_SUBRESOURCE_DATA Data = {};
+        Data.pSysMem = Payload->Mesh->IndexData;
+
+        HRESULT Status = 
+            Dx11.Device->CreateBuffer(&Desc, &Data, &Instance.Geometry.IndexBuffer);
+
+        Instance.Geometry.IndexCount = 
+            sml_u32(Payload->Mesh->IndexDataSize / sizeof(sml_u32));
+
+        Sml_Assert(SUCCEEDED(Status));
+    }
+
+    SmlInt_PushToBackendResource(&Renderer->Instances, &Instance, Payload->Instance);
 }
 
 static void 
@@ -443,10 +414,10 @@ SmlDx11_Setup(sml_renderer *Renderer)
             SmlDx11_SetupMaterial(Payload, Renderer);
         } break;
 
-        case SmlSetupCommand_MeshGroup:
+        case SmlSetupCommand_Instance:
         {
-            auto *Payload = (sml_setup_command_mesh_group*)(CmdPtr + Offset);
-            SmlDx11_SetupMeshGroup(Payload, Renderer);
+            auto *Payload = (sml_setup_command_instance*)(CmdPtr + Offset);
+            SmlDx11_SetupInstance(Payload, Renderer);
         } break;
 
         default:

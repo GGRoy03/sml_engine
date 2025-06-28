@@ -76,7 +76,6 @@ struct sml_mesh_info
     sml_vector3 Position;
 };
 
-
 static sml_mesh
 Sml_GetCubeMesh()
 {

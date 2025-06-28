@@ -11,7 +11,7 @@ enum SmlSetupCommand_Type
     SmlSetupCommand_None,
 
     SmlSetupCommand_Material,
-    SmlSetupCommand_MeshGroup,
+    SmlSetupCommand_Instance,
 };
 
 struct sml_setup_command_header
@@ -30,12 +30,12 @@ struct sml_setup_command_material
     sml_u32       MaterialIndex;
 };
 
-struct sml_setup_command_mesh_group
+struct sml_setup_command_instance
 {
-    sml_mesh *Meshes;
-    sml_u32   MeshCount;
-    sml_u32   MaterialIndex;
-    sml_u32   GroupIndex;
+    sml_mesh   *Mesh;
+    sml_vector3 Position;
+    sml_u32     Material;
+    sml_u32     Instance;
 };
 
 // ===================================
@@ -69,7 +69,6 @@ Sml_PushToOfflineBuffer(sml_renderer *Renderer, void *Data, size_t Size)
 
 // NOTE: Instead of taking in the features. Can't we infer from the material textures
 // instead? Would be way easier for the user.
-
 static sml_u32
 Sml_SetupMaterial(sml_renderer *Renderer, sml_material_texture *MatTexArray,
                   sml_u32 MatTexCount, sml_bit_field Features, sml_bit_field Flags)
@@ -96,27 +95,25 @@ Sml_SetupMaterial(sml_renderer *Renderer, sml_material_texture *MatTexArray,
 }
 
 static sml_u32
-Sml_SetupMeshGroup(sml_renderer *Renderer, sml_mesh *Meshes, sml_u32 MeshCount,
-                   sml_u32 Material)
+Sml_SetupInstance(sml_renderer *Renderer, sml_u32 Material, sml_vector3 Position,
+                  sml_mesh *Mesh)
 {
-    size_t PayloadSize = sizeof(sml_setup_command_mesh_group);
-
     sml_setup_command_header Header = {};
-    Header.Type = SmlSetupCommand_MeshGroup;
-    Header.Size = (sml_u32)PayloadSize;
+    Header.Type = SmlSetupCommand_Instance;
+    Header.Size = (sml_u32)sizeof(sml_setup_command_instance);
 
-    sml_setup_command_mesh_group Payload = {};
-    Payload.Meshes        = Meshes;
-    Payload.MeshCount     = MeshCount;
-    Payload.GroupIndex    = Renderer->Groups.Count;
-    Payload.MaterialIndex = Material;
+    sml_setup_command_instance Payload = {};
+    Payload.Material = Material;
+    Payload.Position = Position;
+    Payload.Instance = Renderer->Instances.Count;
+    Payload.Mesh     = Mesh;
 
-    Sml_PushToOfflineBuffer(Renderer, &Header,  sizeof(sml_setup_command_header));
-    Sml_PushToOfflineBuffer(Renderer, &Payload, PayloadSize);
+    Sml_PushToOfflineBuffer(Renderer, &Header , sizeof(sml_setup_command_header));
+    Sml_PushToOfflineBuffer(Renderer, &Payload, Header.Size);
 
-    ++Renderer->Groups.Count;
+    ++Renderer->Instances.Count;
 
-    return Payload.GroupIndex;
+    return Payload.Instance;
 }
 
 ///////////////////////////////////////////////////////
@@ -132,7 +129,7 @@ enum SmlDrawCommand_Type
     SmlDrawCommand_None,
 
     SmlDrawCommand_Clear,
-    SmlDrawCommand_MeshGroup,
+    SmlDrawCommand_Instance,
 };
 
 struct sml_draw_command_header
@@ -146,9 +143,9 @@ struct sml_draw_command_clear
     sml_vector4 Color;
 };
 
-struct sml_draw_command_mesh_group
+struct sml_draw_command_instance
 {
-    sml_u32 GroupIndex;
+    sml_u32 Instance;
 };
 
 // ===================================
@@ -191,14 +188,14 @@ Sml_DrawClearScreen(sml_renderer *Renderer, sml_vector4 Color)
 }
 
 static void
-Sml_DrawMeshGroup(sml_renderer *Renderer, sml_u32 GroupIndex)
+Sml_DrawInstance(sml_renderer *Renderer, sml_u32 Instance)
 {
     sml_draw_command_header Header = {};
-    Header.Type  = SmlDrawCommand_MeshGroup;
-    Header.Size = sizeof(sml_draw_command_mesh_group);
+    Header.Type = SmlDrawCommand_Instance;
+    Header.Size = sizeof(sml_draw_command_instance);
 
-    sml_draw_command_mesh_group Payload = {};
-    Payload.GroupIndex = GroupIndex; 
+    sml_draw_command_instance Payload = {};
+    Payload.Instance = Instance;
 
     Sml_PushToRuntimeCommandBuffer(Renderer, &Header, sizeof(sml_draw_command_header));
     Sml_PushToRuntimeCommandBuffer(Renderer, &Payload, Header.Size);

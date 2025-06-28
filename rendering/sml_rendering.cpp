@@ -73,6 +73,7 @@ struct sml_renderer
     // Backend Resources
     sml_backend_resource Materials;
     sml_backend_resource Groups;
+    sml_backend_resource Instances;
 
     // Entry points
     sml_renderer_entry_function Playback;

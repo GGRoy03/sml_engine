@@ -145,10 +145,10 @@ SmlDx11_Initialize(sml_window Window)
     DX11Renderer->Materials.Capacity   = 10;
     DX11Renderer->Materials.SizeOfType = sizeof(sml_dx11_material);
 
-    DX11Renderer->Groups.Count      = 0;
-    DX11Renderer->Groups.Data       = malloc(sizeof(sml_dx11_mesh_group) * 10);
-    DX11Renderer->Groups.Capacity   = 10;
-    DX11Renderer->Groups.SizeOfType = sizeof(sml_dx11_mesh_group);
+    DX11Renderer->Instances.Count      = 0;
+    DX11Renderer->Instances.Data       = malloc(sizeof(sml_dx11_instance) * 10);
+    DX11Renderer->Instances.Capacity   = 10;
+    DX11Renderer->Instances.SizeOfType = sizeof(sml_dx11_instance);
 
     return DX11Renderer;
 }
