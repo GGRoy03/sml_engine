@@ -338,7 +338,7 @@ SmlDx11_SetupMaterial(sml_setup_command_material* Payload, sml_renderer *Rendere
 }
 
 // WARN:
-// Missing geometry creation.
+// 1) Uses free
 
 static void
 SmlDx11_SetupInstance(sml_setup_command_instance *Payload, sml_renderer *Renderer)
@@ -371,6 +371,8 @@ SmlDx11_SetupInstance(sml_setup_command_instance *Payload, sml_renderer *Rendere
             Dx11.Device->CreateBuffer(&Desc, &Data, &Instance.Geometry.VertexBuffer);
 
         Sml_Assert(SUCCEEDED(Status));
+
+        free(Payload->Mesh->VertexData);
     }
 
     {
@@ -389,6 +391,8 @@ SmlDx11_SetupInstance(sml_setup_command_instance *Payload, sml_renderer *Rendere
             sml_u32(Payload->Mesh->IndexDataSize / sizeof(sml_u32));
 
         Sml_Assert(SUCCEEDED(Status));
+
+        free(Payload->Mesh->IndexData);
     }
 
     SmlInt_PushToBackendResource(&Renderer->Instances, &Instance, Payload->Instance);
