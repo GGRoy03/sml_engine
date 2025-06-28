@@ -77,12 +77,8 @@ SmlDx11_GetDXGIFormat(SmlData_Type Format)
 // 2) Uses malloc for the renderer allocation
 
 static sml_renderer*
-SmlDx11_Initialize(sml_window Window, sml_pipeline_desc *DefaultPipeline,
-                   sml_material_desc *DefaultMaterial)
+SmlDx11_Initialize(sml_window Window)
 {
-    Sml_Unused(DefaultPipeline);
-    Sml_Unused(DefaultMaterial);
-
     DXGI_SWAP_CHAIN_DESC SDesc = {};
     SDesc.BufferCount          = 2;
     SDesc.BufferDesc.Width     = Window.Width;

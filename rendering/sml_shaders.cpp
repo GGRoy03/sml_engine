@@ -45,10 +45,7 @@ static const char *SmlUberVertexShader_HLSL = R"(
 
 cbuffer PerFrame : register(b0)
 {
-    matrix ViewMatrix;
-    matrix ProjectionMatrix;
-    float3 CameraPosition;
-    float  Time;
+    matrix ViewProjection;
 };
 
 cbuffer PerObject : register(b1)
@@ -75,9 +72,8 @@ VertexOutput VSMain(VertexInput input)
 {
     VertexOutput output;
 
-    float4 worldPos = mul(float4(input.Position, 1.0), WorldMatrix);
-    float4 viewPos  = mul(worldPos, ViewMatrix);
-    output.Position = mul(viewPos, ProjectionMatrix);
+    float4 worldPos = mul(WorldMatrix, float4(input.Position, 1.0));
+    output.Position = mul(ViewProjection, worldPos);
 
     // World position for lighting
     output.WorldPos = worldPos.xyz;
@@ -106,7 +102,7 @@ cbuffer PerFrame : register(b0)
     float  Time;
 };
 
-cbuffer MaterialBuffer : register(b1)
+cbuffer MaterialBuffer : register(b2)
 {
     float3 AlbedoFactor;
     float  MetallicFactor;

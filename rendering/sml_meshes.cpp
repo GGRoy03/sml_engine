@@ -62,11 +62,21 @@ static u32 CubeIndices[] =
 
 struct sml_mesh
 {
-    sml_u32 Material; // NOTE: Should be a material handle.
-
     void  *VertexData;
     size_t VertexDataSize;
 
     void  *IndexData;
     size_t IndexDataSize;
 };
+
+static sml_mesh
+Sml_GetCubeMesh()
+{
+    sml_mesh Mesh = {};
+    Mesh.VertexData     = CubeVertices;
+    Mesh.VertexDataSize = sizeof(CubeVertices);
+    Mesh.IndexData      = CubeIndices;
+    Mesh.IndexDataSize  = sizeof(CubeIndices);
+
+    return Mesh;
+}

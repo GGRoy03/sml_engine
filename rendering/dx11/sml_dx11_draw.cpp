@@ -23,16 +23,71 @@ SmlDx11_DrawClearScreen(sml_draw_command_clear *Payload)
                                         1, 0);
 }
 
+// WARN:
+// 1) Hardcoded topology.
+// 2) Uses magic numbers
+// 3) Missing vertex shader constant buffers. (World Matrix)
+// 4) Makes copies on the stack
+// 5) Shader resource view binding is a bit akward
+//    because of how the data is structured.
+// 6) This is not even the correct way to draw a group.
+//    Simply use this to prototype drawing a single entity
+//    within a group. It should iterate over mesh-info.
+//    For now, we keep it really simple.
+ 
 static void
 SmlDx11_DrawMeshGroup(sml_draw_command_mesh_group *Payload)
 {
-    sml_dx11_mesh_group Group = MeshGroups[Payload->Handle];
+    sml_dx11_mesh_group  Group    = MeshGroups[Payload->Handle];
+    sml_dx11_material    Material = Materials[Group.Material];
+    ID3D11DeviceContext *Context  = Dx11.Context;
+
+    UINT Offset = 0;
+
+    // IA
+    Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    Context->IASetInputLayout(Material.Variant.InputLayout);
+    Context->IASetVertexBuffers(0, 1, &Group.VertexBuffer, &Material.Variant.Stride, &Offset);
+    Context->IASetIndexBuffer(Group.IndexBuffer, DXGI_FORMAT_R32_UINT ,0);
+
+    // VS
+    Context->VSSetShader(Material.Variant.VertexShader, nullptr, 0);
+
+    // NOTE: Simple way to set the per object data. Obviously it's quite bad
+    // but it should work.
+    {
+        D3D11_MAPPED_SUBRESOURCE Mapped = {};
+        Context->Map(Group.PerObject, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
+
+        sml_matrix4 World = SmlMat4_Identity();
+        memcpy(Mapped.pData, &World, sizeof(World));
+
+        Context->Unmap(Group.PerObject, 0);
+
+        Context->VSSetConstantBuffers(1, 1, &Group.PerObject);
+    }
+
+    // PS
+    Context->PSSetConstantBuffers(2, 1, &Material.ConstantBuffer);
+    Context->PSSetSamplers(0, 1, &Material.SamplerState);
+    Context->PSSetShader(Material.Variant.PixelShader, nullptr, 0);
+
+    for (u32 Index = 0; Index < SmlMaterial_Count; Index++)
+    {
+        ID3D11ShaderResourceView* View = Material.Sampled[Index].ResourceView;
+
+        if (View)
+        {
+            Context->PSSetShaderResources(0, 1, &View);
+        }
+    }
+
+    // Draw
+    Context->DrawIndexed(Group.IndexCount, 0, 0);
 }
 
 // WARN:
-// 1) No pipeline logic binding or anything
-// 2) No draw calls
-// 3) No topology (Add to pipeline)
+// 1) Constant buffer binding at start of frame is wrong.
 
 static void 
 SmlDx11_Playback(sml_renderer *Renderer)

@@ -25,6 +25,9 @@ struct sml_setup_command_header
 
 struct sml_setup_command_material
 {
+    sml_material_texture *MaterialTextureArray;
+    sml_u32               MaterialTextureCount;
+
     sml_bit_field       Features;
     sml_bit_field       Flags;
     sml_material_handle Handle;
@@ -34,6 +37,7 @@ struct sml_setup_command_mesh_group
 {
     sml_mesh             *Meshes;
     sml_u32               MeshCount;
+    sml_material_handle   Material;
     sml_mesh_group_handle Handle;
 };
 
@@ -41,9 +45,8 @@ struct sml_setup_command_mesh_group
 //  Global Variables
 // ===================================
 
-static sml_u32 NextStaticCacheHandle = 1;
-static sml_u32 NextMaterialHandle    = 1;
-static sml_u32 NextMeshGroupHandle   = 1;
+static sml_u32 NextMaterialHandle  = 1;
+static sml_u32 NextMeshGroupHandle = 1;
 
 // ===================================
 // Helper Functions
@@ -70,9 +73,12 @@ Sml_PushToOfflineBuffer(sml_renderer *Renderer, void *Data, size_t Size)
 // User API 
 // ===================================
 
+// NOTE: Instead of taking in the features. Can't we infer from the material textures
+// instead? Would be way easier for the user.
+
 static sml_material_handle
-Sml_SetupMaterial(sml_renderer *Renderer, sml_bit_field Features,
-                  sml_bit_field Flags)
+Sml_SetupMaterial(sml_renderer *Renderer, sml_material_texture *MatTexArray,
+                  sml_u32 MatTexCount, sml_bit_field Features, sml_bit_field Flags)
 {
     size_t PayloadSize = sizeof(sml_setup_command_material);
 
@@ -81,12 +87,14 @@ Sml_SetupMaterial(sml_renderer *Renderer, sml_bit_field Features,
     Header.Size = (sml_u32)PayloadSize;
 
     sml_setup_command_material Payload = {};
-    Payload.Features = Features;
-    Payload.Flags    = Flags;
-    Payload.Handle   = NextMaterialHandle;
+    Payload.MaterialTextureArray = MatTexArray;
+    Payload.MaterialTextureCount = MatTexCount;
+    Payload.Features             = Features;
+    Payload.Flags                = Flags;
+    Payload.Handle               = NextMaterialHandle;
 
-    Sml_PushToOfflineBuffer(Renderer, &Header, sizeof(sml_setup_command_header));
-    Sml_PushToOfflineBuffer(Renderer, &Header, PayloadSize);
+    Sml_PushToOfflineBuffer(Renderer, &Header , sizeof(sml_setup_command_header));
+    Sml_PushToOfflineBuffer(Renderer, &Payload, PayloadSize);
 
     ++NextMaterialHandle;
 
@@ -94,7 +102,8 @@ Sml_SetupMaterial(sml_renderer *Renderer, sml_bit_field Features,
 }
 
 static sml_mesh_group_handle
-Sml_SetupMeshGroup(sml_renderer *Renderer, sml_mesh *Meshes, sml_u32 MeshCount)
+Sml_SetupMeshGroup(sml_renderer *Renderer, sml_mesh *Meshes, sml_u32 MeshCount,
+                   sml_material_handle Material)
 {
     size_t PayloadSize = sizeof(sml_setup_command_mesh_group);
 
@@ -106,9 +115,10 @@ Sml_SetupMeshGroup(sml_renderer *Renderer, sml_mesh *Meshes, sml_u32 MeshCount)
     Payload.Meshes    = Meshes;
     Payload.MeshCount = MeshCount;
     Payload.Handle    = NextMeshGroupHandle;
+    Payload.Material  = Material;
 
-    Sml_PushToOfflineBuffer(Renderer, &Header, sizeof(sml_setup_command_header));
-    Sml_PushToOfflineBuffer(Renderer, &Header, PayloadSize);
+    Sml_PushToOfflineBuffer(Renderer, &Header,  sizeof(sml_setup_command_header));
+    Sml_PushToOfflineBuffer(Renderer, &Payload, PayloadSize);
 
     ++NextMeshGroupHandle;
 
@@ -181,6 +191,20 @@ Sml_DrawClearScreen(sml_renderer *Renderer, sml_vector4 Color)
 
     sml_draw_command_clear Payload = {};
     Payload.Color                  = Color;
+
+    Sml_PushToRuntimeCommandBuffer(Renderer, &Header, sizeof(sml_draw_command_header));
+    Sml_PushToRuntimeCommandBuffer(Renderer, &Payload, Header.Size);
+}
+
+static void
+Sml_DrawMeshGroup(sml_renderer *Renderer, sml_mesh_group_handle Handle)
+{
+    sml_draw_command_header Header = {};
+    Header.Type  = SmlDrawCommand_MeshGroup;
+    Header.Size = sizeof(sml_draw_command_mesh_group);
+
+    sml_draw_command_mesh_group Payload = {};
+    Payload.Handle = Handle; 
 
     Sml_PushToRuntimeCommandBuffer(Renderer, &Header, sizeof(sml_draw_command_header));
     Sml_PushToRuntimeCommandBuffer(Renderer, &Payload, Header.Size);
