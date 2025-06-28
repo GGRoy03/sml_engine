@@ -5,7 +5,6 @@
 // Type Definitions
 // ===================================
 
-// NOTE: We might want to consider holding more things in the variant structure.
 struct sml_dx11_shader_variant
 {
     ID3D11InputLayout* InputLayout;
@@ -26,22 +25,13 @@ struct sml_dx11_material
 {
     sml_dx11_shader_variant   Variant;
     sml_dx11_material_texture Sampled[SmlMaterial_Count];
-    ID3D11SamplerState* SamplerState;
-    ID3D11Buffer* ConstantBuffer;
-};
-
-struct sml_mesh_info
-{
-    // NOTE: These are not yet used.
-    sml_material_handle Material;
-    sml_u32 IndexCount;
-
-    sml_vector3 Position;
+    ID3D11SamplerState       *SamplerState;
+    ID3D11Buffer             *ConstantBuffer;
 };
 
 struct sml_dx11_mesh_group
 {
-    sml_material_handle Material;
+    sml_u32 MaterialIndex;
 
     ID3D11Buffer* VertexBuffer;
     ID3D11Buffer* IndexBuffer;
@@ -62,9 +52,6 @@ struct sml_dx11_mesh_group
 // ===================================
 //  Global Variables
 // ===================================
-
-static std::unordered_map<sml_material_handle, sml_dx11_material>     Materials;
-static std::unordered_map<sml_mesh_group_handle, sml_dx11_mesh_group> MeshGroups;
 
 // ===================================
 // Internal Helpers
@@ -261,7 +248,7 @@ SmlDx11_CreateInputLayout(ID3DBlob* VertexBlob, UINT* OutStride)
 
 
 static void
-SmlDx11_SetupMaterial(sml_setup_command_material* Payload)
+SmlDx11_SetupMaterial(sml_setup_command_material* Payload, sml_renderer *Renderer)
 {
     HRESULT           Status = S_OK;
     sml_dx11_material Material = {};
@@ -348,7 +335,8 @@ SmlDx11_SetupMaterial(sml_setup_command_material* Payload)
 
     Material.Variant.FeatureFlags = Payload->Features;
 
-    Materials[Payload->Handle] = Material;
+    SmlInt_PushToBackendResource(&Renderer->Materials, &Material,
+                                 Payload->MaterialIndex);
 }
 
 // WARN:
@@ -356,7 +344,7 @@ SmlDx11_SetupMaterial(sml_setup_command_material* Payload)
 // 2) Uses malloc/free
 
 static void
-SmlDx11_SetupMeshGroup(sml_setup_command_mesh_group* Payload)
+SmlDx11_SetupMeshGroup(sml_setup_command_mesh_group* Payload, sml_renderer *Renderer)
 {
     Sml_Assert(Payload->Meshes);
 
@@ -424,15 +412,15 @@ SmlDx11_SetupMeshGroup(sml_setup_command_mesh_group* Payload)
         Sml_Assert(SUCCEEDED(Status));
 
         // TEST: Try with some simple hardcoded values
-        Group.MeshCount = 1;
+        Group.MeshCount         = 1;
         Group.MeshInfo.Position = sml_vector3(0.0f, 0.0f, 0.0f);
-        Group.Material = Payload->Material;
+        Group.MaterialIndex     = Payload->MaterialIndex;
     }
 
     free(CPUVertexBuffer);
     free(CPUIndexBuffer);
 
-    MeshGroups[Payload->Handle] = Group;
+    SmlInt_PushToBackendResource(&Renderer->Groups, &Group, Payload->GroupIndex);
 }
 
 static void 
@@ -452,13 +440,13 @@ SmlDx11_Setup(sml_renderer *Renderer)
         case SmlSetupCommand_Material:
         {
             auto *Payload = (sml_setup_command_material*)(CmdPtr + Offset);
-            SmlDx11_SetupMaterial(Payload);
+            SmlDx11_SetupMaterial(Payload, Renderer);
         } break;
 
         case SmlSetupCommand_MeshGroup:
         {
             auto *Payload = (sml_setup_command_mesh_group*)(CmdPtr + Offset);
-            SmlDx11_SetupMeshGroup(Payload);
+            SmlDx11_SetupMeshGroup(Payload, Renderer);
         } break;
 
         default:

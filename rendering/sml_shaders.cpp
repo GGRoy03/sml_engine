@@ -2,9 +2,6 @@
 // Type Definitions
 // ===================================
 
-using sml_feature_mask  = sml_u32;
-using sml_shader_handle = sml_u32;
-
 enum SmlShaderFeature_Type
 {
     SmlShaderFeat_AlbedoMap = 1 << 0,

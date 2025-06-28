@@ -32,8 +32,6 @@ enum SmlData_Type
 #include "math/matrix.cpp"
 
 // Rendering
-#include "rendering/sml_meshes.cpp"
-
 #include "platform/sml_platform.cpp"
 #include "rendering/sml_rendering.cpp"
 

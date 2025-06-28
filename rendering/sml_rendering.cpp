@@ -47,9 +47,12 @@ struct sml_material_constants
 struct sml_renderer;
 using sml_renderer_entry_function = void(*)(sml_renderer *Renderer);
 
-struct sml_per_frame_data
+struct sml_backend_resource
 {
-    sml_matrix4 Camera;
+    void    *Data;
+    size_t   SizeOfType;
+    sml_u32  Count;
+    sml_u32  Capacity;
 };
 
 struct sml_renderer
@@ -66,6 +69,10 @@ struct sml_renderer
 
     // Misc data
     sml_matrix4 CameraData;
+
+    // Backend Resources
+    sml_backend_resource Materials;
+    sml_backend_resource Groups;
 
     // Entry points
     sml_renderer_entry_function Playback;
@@ -201,10 +208,33 @@ Sml_GetDefaultShaderSize(SmlRenderer_Backend Backend)
     }
 }
 
+static void
+SmlInt_PushToBackendResource(sml_backend_resource *Resource, void *Data, sml_u32 Index)
+{
+    Sml_Assert(Resource->Data);
+
+    if(Resource->Count < Resource->Capacity)
+    {
+        void *WritePointer = (sml_u8*)Resource->Data + (Index *  Resource->SizeOfType);
+        memcpy(WritePointer, Data, Resource->SizeOfType);
+    }
+}
+
+static void*
+SmlInt_GetBackendResource(sml_backend_resource *Resource, sml_u32 Index)
+{
+    Sml_Assert(Resource->Data);
+
+    void *ReadPointer = (sml_u8*)Resource->Data + (Index *  Resource->SizeOfType);
+
+    return ReadPointer;
+}
+
 // ===================================
 // Renderer agnostic files
 // ===================================
 
+#include "sml_meshes.cpp"
 #include "sml_camera.cpp"
 #include "sml_commands.cpp"
 #include "sml_shaders.cpp"

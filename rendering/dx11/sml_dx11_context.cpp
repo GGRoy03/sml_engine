@@ -63,8 +63,6 @@ SmlDx11_GetDXGIFormat(SmlData_Type Format)
 // Directx11 Files
 // ===================================
 
-#include "sml_dx11_shader_test.cpp"
-
 #include "sml_dx11_setup.cpp"
 #include "sml_dx11_draw.cpp"
 
@@ -154,6 +152,16 @@ SmlDx11_Initialize(sml_window Window)
     auto *DX11Renderer     = (sml_renderer*)malloc(sizeof(sml_renderer));
     DX11Renderer->Playback = SmlDx11_Playback;
     DX11Renderer->Setup    = SmlDx11_Setup;
+
+    DX11Renderer->Materials.Count      = 0;
+    DX11Renderer->Materials.Data       = malloc(sizeof(sml_dx11_material) * 10);
+    DX11Renderer->Materials.Capacity   = 10;
+    DX11Renderer->Materials.SizeOfType = sizeof(sml_dx11_material);
+
+    DX11Renderer->Groups.Count      = 0;
+    DX11Renderer->Groups.Data       = malloc(sizeof(sml_dx11_mesh_group) * 10);
+    DX11Renderer->Groups.Capacity   = 10;
+    DX11Renderer->Groups.SizeOfType = sizeof(sml_dx11_mesh_group);
 
     return DX11Renderer;
 }

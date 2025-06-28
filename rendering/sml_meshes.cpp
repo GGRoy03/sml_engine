@@ -69,6 +69,14 @@ struct sml_mesh
     size_t IndexDataSize;
 };
 
+struct sml_mesh_info
+{
+    sml_u32     Material;
+    sml_u32     IndexCount;
+    sml_vector3 Position;
+};
+
+
 static sml_mesh
 Sml_GetCubeMesh()
 {
