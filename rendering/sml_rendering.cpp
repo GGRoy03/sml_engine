@@ -62,6 +62,11 @@ struct sml_renderer
     size_t OfflinePushSize;
     size_t OfflinePushCapacity;
 
+    // Update Push Buffer
+    void  *UpdatePushBase;
+    size_t UpdatePushSize;
+    size_t UpdatePushCapacity;
+
     // Runtime Push Buffer
     void  *RuntimePushBase;
     size_t RuntimePushSize;
@@ -77,8 +82,9 @@ struct sml_renderer
     sml_backend_resource Instanced;
 
     // Entry points
-    sml_renderer_entry_function Playback;
     sml_renderer_entry_function Setup;
+    sml_renderer_entry_function Update;
+    sml_renderer_entry_function Playback;
 };
 
 // ===================================
@@ -241,13 +247,17 @@ Sml_CreateRenderer(SmlRenderer_Backend Backend, sml_window Window)
 
     }
 
-    Renderer->RuntimePushBase     = malloc(Sml_Kilobytes(5));
-    Renderer->RuntimePushSize     = 0;
-    Renderer->RuntimePushCapacity = Sml_Kilobytes(5);
+    Renderer->UpdatePushBase     = malloc(Sml_Kilobytes(5));
+    Renderer->UpdatePushSize     = 0;
+    Renderer->UpdatePushCapacity = Sml_Kilobytes(5);
 
     Renderer->OfflinePushBase     = malloc(Sml_Kilobytes(5));
     Renderer->OfflinePushSize     = 0;
     Renderer->OfflinePushCapacity = Sml_Kilobytes(5);
+
+    Renderer->RuntimePushBase     = malloc(Sml_Kilobytes(5));
+    Renderer->RuntimePushSize     = 0;
+    Renderer->RuntimePushCapacity = Sml_Kilobytes(5);
 
     return Renderer;
 }

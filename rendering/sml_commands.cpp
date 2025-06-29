@@ -41,12 +41,10 @@ struct sml_setup_command_instance
 
 struct sml_setup_command_instanced
 {
-    sml_u32      Count;
-    sml_mesh    *Mesh;
-    sml_vector3 *Data;
-
-    sml_u32 Material;
-    sml_u32 Instanced;
+    sml_u32   Count;
+    sml_mesh *Mesh;
+    sml_u32   Material;
+    sml_u32   Instanced;
 };
 
 // ===================================
@@ -129,7 +127,7 @@ Sml_SetupInstance(sml_renderer *Renderer, sml_u32 Material, sml_vector3 Position
 
 static sml_u32
 Sml_SetupInstanced(sml_renderer *Renderer, sml_u32 Material, sml_mesh *Mesh,
-                   sml_vector3 *InitialData, sml_u32 InstanceCount)
+                   sml_u32 InstanceCount)
 {
     sml_setup_command_header Header = {};
     Header.Type = SmlSetupCommand_Instanced;
@@ -139,7 +137,6 @@ Sml_SetupInstanced(sml_renderer *Renderer, sml_u32 Material, sml_mesh *Mesh,
     Payload.Material  = Material;
     Payload.Instanced = Renderer->Instances.Count;
     Payload.Mesh      = Mesh;
-    Payload.Data      = InitialData;
     Payload.Count     = InstanceCount;
 
     Sml_PushToOfflineBuffer(Renderer, &Header , sizeof(sml_setup_command_header));
@@ -148,6 +145,73 @@ Sml_SetupInstanced(sml_renderer *Renderer, sml_u32 Material, sml_mesh *Mesh,
     ++Renderer->Instances.Count;
 
     return Payload.Instanced;
+}
+
+///////////////////////////////////////////////////////
+///                  UPDATE COMMANDS                ///
+///////////////////////////////////////////////////////
+
+// ===================================
+//  Type Definitions
+// ===================================
+
+enum SmlUpdateCommand_Type
+{
+    SmlUpdateCommand_None,
+
+    SmlUpdateCommand_InstancedData,
+};
+
+struct sml_update_command_header
+{
+    SmlUpdateCommand_Type Type;
+    sml_u32               Size;
+};
+
+struct sml_update_command_instanced_data
+{
+    sml_vector3 *Data;
+    sml_u32      Instanced;
+};
+
+// ===================================
+// Helper Functions
+// ===================================
+
+static void
+SmlInt_PushToUpdateBuffer(sml_renderer *Renderer, void *Data, size_t Size)
+{
+    if(Renderer->UpdatePushSize + Size <= Renderer->UpdatePushCapacity)
+    {
+        void *WritePointer = (sml_u8*)
+            Renderer->UpdatePushBase + Renderer->UpdatePushSize;
+
+        memcpy(WritePointer, Data, Size);
+        Renderer->UpdatePushSize += Size;
+    }
+    else
+    {
+        Sml_Assert(!"Push buffer exceeds maximum size");
+    }
+}
+
+// ===================================
+// User API 
+// ===================================
+
+static void
+Sml_UpdateInstanced(sml_renderer *Renderer, sml_vector3 *Data, sml_u32 Instanced)
+{
+    sml_update_command_header Header = {};
+    Header.Type = SmlUpdateCommand_InstancedData;
+    Header.Size = (sml_u32)sizeof(sml_update_command_instanced_data);
+
+    sml_update_command_instanced_data Payload = {};
+    Payload.Data      = Data;
+    Payload.Instanced = Instanced;
+
+    SmlInt_PushToUpdateBuffer(Renderer, &Header , sizeof(sml_update_command_header));
+    SmlInt_PushToUpdateBuffer(Renderer, &Payload, Header.Size);
 }
 
 ///////////////////////////////////////////////////////
@@ -185,9 +249,7 @@ struct sml_draw_command_instance
 
 struct sml_draw_command_instanced
 {
-    sml_u32      Count;
-    sml_vector3 *Data;
-    sml_u32      Instanced;
+    sml_u32 Instanced;
 };
 
 // ===================================
@@ -244,8 +306,7 @@ Sml_DrawInstance(sml_renderer *Renderer, sml_u32 Instance)
 }
 
 static void
-Sml_DrawInstanced(sml_renderer *Renderer, sml_u32 Instanced, sml_u32 Count,
-                  sml_vector3 *Data)
+Sml_DrawInstanced(sml_renderer *Renderer, sml_u32 Instanced)
 {
     sml_draw_command_header Header = {};
     Header.Type = SmlDrawCommand_Instanced;
@@ -253,8 +314,6 @@ Sml_DrawInstanced(sml_renderer *Renderer, sml_u32 Instanced, sml_u32 Count,
 
     sml_draw_command_instanced Payload = {};
     Payload.Instanced = Instanced;
-    Payload.Count     = Count;
-    Payload.Data      = Data;
 
     Sml_PushToRuntimeCommandBuffer(Renderer, &Header, sizeof(sml_draw_command_header));
     Sml_PushToRuntimeCommandBuffer(Renderer, &Payload, Header.Size);

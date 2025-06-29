@@ -100,25 +100,7 @@ SmlDx11_DrawInstanced(sml_draw_command_instanced *Payload, sml_renderer *Rendere
 
     // VS
     Ctx->VSSetShader(Material->Variant.VertexShader, nullptr, 0);
-
-    {
-        size_t       DataSize = Payload->Count * sizeof(sml_matrix4);
-        sml_matrix4* CPUMatrices = (sml_matrix4*)malloc(DataSize);
-
-        for (u32 Index = 0; Index < Payload->Count; Index++)
-        {
-            CPUMatrices[Index] = SmlMat4_Translation(Payload->Data[Index]);
-        }
-
-        D3D11_MAPPED_SUBRESOURCE Mapped = {};
-        Dx11.Context->Map(Instanced->Buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
-        memcpy(Mapped.pData, CPUMatrices, DataSize);
-        Dx11.Context->Unmap(Instanced->Buffer, 0);
-
-        Dx11.Context->VSSetShaderResources(10, 1, &Instanced->ResourceView);
-        
-        free(CPUMatrices);
-    }
+    Ctx->VSSetShaderResources(10, 1, &Instanced->ResourceView);
 
     // PS
     Ctx->PSSetConstantBuffers(2, 1, &Material->ConstantBuffer);
@@ -136,7 +118,8 @@ SmlDx11_DrawInstanced(sml_draw_command_instanced *Payload, sml_renderer *Rendere
     }
 
     // Draw
-    Ctx->DrawIndexedInstanced(Instanced->Geometry.IndexCount, Payload->Count, 0, 0, 0);
+    Ctx->DrawIndexedInstanced(Instanced->Geometry.IndexCount, Instanced->Count,
+                              0, 0, 0);
 }
 
 // WARN:

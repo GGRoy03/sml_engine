@@ -48,7 +48,9 @@ struct sml_dx11_instance
 
 struct sml_dx11_instanced
 {
+    sml_u32                   Count;
     sml_u32                   Material;
+    sml_matrix4              *CPUMapped;
     sml_dx11_geometry         Geometry;
     ID3D11Buffer             *Buffer;
     ID3D11ShaderResourceView *ResourceView;
@@ -415,7 +417,7 @@ SmlDx11_SetupInstance(sml_setup_command_instance *Payload, sml_renderer *Rendere
 
 // WARN:
 // 1) Does not free the meshes, flag based?
-// 2) Does one malloc/free per calls. (Keep CPU buffer between frames?)
+// 2) Uses malloc
 
 static void
 SmlDx11_SetupInstanced(sml_setup_command_instanced *Payload, sml_renderer *Renderer)
@@ -476,24 +478,11 @@ SmlDx11_SetupInstanced(sml_setup_command_instanced *Payload, sml_renderer *Rende
         Status = Dx11.Device->CreateShaderResourceView(Instanced.Buffer, &SrvDesc,
                                                        &Instanced.ResourceView);
         Sml_Assert(SUCCEEDED(Status));
-
-        size_t       DataSize    = Payload->Count * sizeof(sml_matrix4);
-        sml_matrix4 *CPUMatrices = (sml_matrix4*)malloc(DataSize);
-
-        for(u32 Index = 0; Index < Payload->Count; Index++)
-        {
-            CPUMatrices[Index] = SmlMat4_Translation(Payload->Data[Index]);
-        }
-
-        D3D11_MAPPED_SUBRESOURCE Mapped = {};
-        Dx11.Context->Map(Instanced.Buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
-        memcpy(Mapped.pData, CPUMatrices, DataSize);
-        Dx11.Context->Unmap(Instanced.Buffer, 0);
-
-        free(CPUMatrices);
     }
 
-    Instanced.Material = Payload->Material;
+    Instanced.Material  = Payload->Material;
+    Instanced.CPUMapped = (sml_matrix4*)malloc(Payload->Count * sizeof(sml_matrix4));
+    Instanced.Count     = Payload->Count;
 
     SmlInt_PushToBackendResource(&Renderer->Instanced, &Instanced, Payload->Instanced);
 }

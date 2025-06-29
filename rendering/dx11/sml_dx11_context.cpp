@@ -26,17 +26,6 @@ struct sml_dx11_context
 };
 
 // ===================================
-// Rendering API
-// ===================================
-
-static sml_renderer* SmlDx11_Initialize(sml_window Window);
-
-static void SmlDx11_ClearScreen(sml_draw_command_header *Header);
-
-static void SmlDx11_Setup   (sml_renderer *Renderer);
-static void SmlDx11_Playback(sml_renderer *Renderer);
-
-// ===================================
 //  Global variables
 // ===================================
 
@@ -51,6 +40,7 @@ static sml_dx11_context Dx11;
 // ===================================
 
 #include "sml_dx11_setup.cpp"
+#include "sml_dx11_update.cpp"
 #include "sml_dx11_draw.cpp"
 
 // ===================================
@@ -137,8 +127,9 @@ SmlDx11_Initialize(sml_window Window)
     Sml_Assert(SUCCEEDED(Status));
 
     auto *DX11Renderer     = (sml_renderer*)malloc(sizeof(sml_renderer));
-    DX11Renderer->Playback = SmlDx11_Playback;
     DX11Renderer->Setup    = SmlDx11_Setup;
+    DX11Renderer->Update   = SmlDx11_Update;
+    DX11Renderer->Playback = SmlDx11_Playback;
 
     DX11Renderer->Materials.Count      = 0;
     DX11Renderer->Materials.Data       = malloc(sizeof(sml_dx11_material) * 10);
