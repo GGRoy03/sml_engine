@@ -27,10 +27,11 @@ static void
 SmlDx11_DrawInstance(sml_draw_command_instance *Payload, sml_renderer *Renderer)
 {
     sml_dx11_instance *Instance = (sml_dx11_instance*)
-        SmlInt_GetBackendResource(&Renderer->Instances, Payload->Instance);
+        SmlInt_GetBackendResource(&Renderer->Instances, (sml_u32)Payload->Instance);
 
     sml_dx11_material *Material = (sml_dx11_material*)
-        SmlInt_GetBackendResource(&Renderer->Materials, Instance->Data.Material);
+        SmlInt_GetBackendResource(&Renderer->Materials,
+                                  (sml_u32)Instance->Data.Material);
 
     ID3D11DeviceContext *Ctx    = Dx11.Context;
     UINT                 Offset = 0;
@@ -72,10 +73,10 @@ static void
 SmlDx11_DrawInstanced(sml_draw_command_instanced *Payload, sml_renderer *Renderer)
 {
     sml_dx11_instanced *Instanced = (sml_dx11_instanced*)
-        SmlInt_GetBackendResource(&Renderer->Instanced, Payload->Instanced);
+        SmlInt_GetBackendResource(&Renderer->Instanced, (sml_u32)Payload->Instanced);
 
     sml_dx11_material *Material = (sml_dx11_material*)
-        SmlInt_GetBackendResource(&Renderer->Materials, Instanced->Material);
+        SmlInt_GetBackendResource(&Renderer->Materials, (sml_u32)Instanced->Material);
 
     ID3D11DeviceContext *Ctx    = Dx11.Context;
     UINT                 Offset = 0;

@@ -19,7 +19,7 @@ SmlDx11_UpdateInstanceData(sml_update_command_instance_data *Payload,
                             sml_renderer *Renderer)
 {
     sml_dx11_instance *Instance = (sml_dx11_instance*)
-        SmlInt_GetBackendResource(&Renderer->Instances, Payload->Instance);
+        SmlInt_GetBackendResource(&Renderer->Instances, (sml_u32)Payload->Instance);
 
     sml_matrix4 World = SmlMat4_Translation(Payload->Data);
 
@@ -34,7 +34,7 @@ SmlDx11_UpdateInstancedData(sml_update_command_instanced_data * Payload,
                             sml_renderer *Renderer)
 {
     sml_dx11_instanced *Instanced = (sml_dx11_instanced*)
-        SmlInt_GetBackendResource(&Renderer->Instanced, Payload->Instanced);
+        SmlInt_GetBackendResource(&Renderer->Instanced, (sml_u32)Payload->Instanced);
 
     size_t DataSize = Instanced->Count * sizeof(sml_matrix4);
 

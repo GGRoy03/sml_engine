@@ -402,7 +402,9 @@ SmlDx11_SetupInstance(sml_setup_command_instance *Payload, sml_renderer *Rendere
         Sml_Assert(SUCCEEDED(Status));
     }
 
-    SmlInt_PushToBackendResource(&Renderer->Instances, &Instance, Payload->Instance);
+    // NOTE: This is another reason why templated backend resources would be nice
+    SmlInt_PushToBackendResource(&Renderer->Instances, &Instance, 
+                                 (sml_u32)Payload->Instance);
 }
 
 // WARN:
@@ -474,7 +476,8 @@ SmlDx11_SetupInstanced(sml_setup_command_instanced *Payload, sml_renderer *Rende
     Instanced.CPUMapped = (sml_matrix4*)malloc(Payload->Count * sizeof(sml_matrix4));
     Instanced.Count     = Payload->Count;
 
-    SmlInt_PushToBackendResource(&Renderer->Instanced, &Instanced, Payload->Instanced);
+    SmlInt_PushToBackendResource(&Renderer->Instanced, &Instanced,
+                                 (sml_u32)Payload->Instanced);
 }
 
 static void 

@@ -44,9 +44,13 @@ struct sml_material_constants
     sml_f32     Padding[3];
 };
 
+
 struct sml_renderer;
 using sml_renderer_entry_function = void(*)(sml_renderer *Renderer);
 
+// NOTE: I would be nice to get the actual type via a template of some sorts.
+// It would reduce the amounts of random casts all around the code. Could
+// even remove SizeOfType and simplify the logic.
 struct sml_backend_resource
 {
     void    *Data;

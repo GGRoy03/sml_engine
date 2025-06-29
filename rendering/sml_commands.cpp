@@ -1,3 +1,10 @@
+// ===================================
+//  Common Type Definitions
+// ===================================
+
+enum class sml_instance  : sml_u32 {};
+enum class sml_instanced : sml_u32 {};
+
 ///////////////////////////////////////////////////////
 ///                  SETUP COMMANDS                 ///
 ///////////////////////////////////////////////////////
@@ -33,18 +40,18 @@ struct sml_setup_command_material
 
 struct sml_setup_command_instance
 {
-    sml_mesh   *Mesh;
-    sml_vector3 Position;
-    sml_u32     Material;
-    sml_u32     Instance;
+    sml_mesh    *Mesh;
+    sml_vector3  Position;
+    sml_u32      Material;
+    sml_instance Instance;
 };
 
 struct sml_setup_command_instanced
 {
-    sml_u32   Count;
-    sml_mesh *Mesh;
-    sml_u32   Material;
-    sml_u32   Instanced;
+    sml_u32       Count;
+    sml_mesh     *Mesh;
+    sml_u32       Material;
+    sml_instanced Instanced;
 };
 
 // ===================================
@@ -103,7 +110,7 @@ Sml_SetupMaterial(sml_renderer *Renderer, sml_material_texture *MatTexArray,
     return Payload.MaterialIndex;
 }
 
-static sml_u32
+static sml_instance
 Sml_SetupInstance(sml_renderer *Renderer, sml_u32 Material, sml_vector3 Position,
                   sml_mesh *Mesh)
 {
@@ -114,7 +121,7 @@ Sml_SetupInstance(sml_renderer *Renderer, sml_u32 Material, sml_vector3 Position
     sml_setup_command_instance Payload = {};
     Payload.Material = Material;
     Payload.Position = Position;
-    Payload.Instance = Renderer->Instances.Count;
+    Payload.Instance = (sml_instance)Renderer->Instances.Count;
     Payload.Mesh     = Mesh;
 
     Sml_PushToOfflineBuffer(Renderer, &Header , sizeof(sml_setup_command_header));
@@ -125,7 +132,7 @@ Sml_SetupInstance(sml_renderer *Renderer, sml_u32 Material, sml_vector3 Position
     return Payload.Instance;
 }
 
-static sml_u32
+static sml_instanced
 Sml_SetupInstanced(sml_renderer *Renderer, sml_u32 Material, sml_mesh *Mesh,
                    sml_u32 InstanceCount)
 {
@@ -135,7 +142,7 @@ Sml_SetupInstanced(sml_renderer *Renderer, sml_u32 Material, sml_mesh *Mesh,
 
     sml_setup_command_instanced Payload = {};
     Payload.Material  = Material;
-    Payload.Instanced = Renderer->Instances.Count;
+    Payload.Instanced = (sml_instanced)Renderer->Instances.Count;
     Payload.Mesh      = Mesh;
     Payload.Count     = InstanceCount;
 
@@ -171,14 +178,14 @@ struct sml_update_command_header
 
 struct sml_update_command_instance_data
 {
-    sml_vector3 Data;
-    sml_u32     Instance;
+    sml_vector3  Data;
+    sml_instance Instance;
 };
 
 struct sml_update_command_instanced_data
 {
-    sml_vector3 *Data;
-    sml_u32      Instanced;
+    sml_vector3  *Data;
+    sml_instanced Instanced;
 };
 
 // ===================================
@@ -207,7 +214,7 @@ SmlInt_PushToUpdateBuffer(sml_renderer *Renderer, void *Data, size_t Size)
 // ===================================
 
 static void
-Sml_UpdateInstance(sml_renderer *Renderer, sml_vector3 Data, sml_u32 Instance)
+Sml_UpdateInstance(sml_renderer *Renderer, sml_vector3 Data, sml_instance Instance)
 {
     sml_update_command_header Header = {};
     Header.Type = SmlUpdateCommand_InstanceData;
@@ -222,7 +229,7 @@ Sml_UpdateInstance(sml_renderer *Renderer, sml_vector3 Data, sml_u32 Instance)
 }
 
 static void
-Sml_UpdateInstanced(sml_renderer *Renderer, sml_vector3 *Data, sml_u32 Instanced)
+Sml_UpdateInstanced(sml_renderer *Renderer, sml_vector3 *Data, sml_instanced Instanced)
 {
     sml_update_command_header Header = {};
     Header.Type = SmlUpdateCommand_InstancedData;
@@ -266,12 +273,12 @@ struct sml_draw_command_clear
 
 struct sml_draw_command_instance
 {
-    sml_u32 Instance;
+    sml_instance Instance;
 };
 
 struct sml_draw_command_instanced
 {
-    sml_u32 Instanced;
+    sml_instanced Instanced;
 };
 
 // ===================================
@@ -314,7 +321,7 @@ Sml_DrawClearScreen(sml_renderer *Renderer, sml_vector4 Color)
 }
 
 static void
-Sml_DrawInstance(sml_renderer *Renderer, sml_u32 Instance)
+Sml_DrawInstance(sml_renderer *Renderer, sml_instance Instance)
 {
     sml_draw_command_header Header = {};
     Header.Type = SmlDrawCommand_Instance;
@@ -328,7 +335,7 @@ Sml_DrawInstance(sml_renderer *Renderer, sml_u32 Instance)
 }
 
 static void
-Sml_DrawInstanced(sml_renderer *Renderer, sml_u32 Instanced)
+Sml_DrawInstanced(sml_renderer *Renderer, sml_instanced Instanced)
 {
     sml_draw_command_header Header = {};
     Header.Type = SmlDrawCommand_Instanced;
