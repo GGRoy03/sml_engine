@@ -159,6 +159,7 @@ enum SmlUpdateCommand_Type
 {
     SmlUpdateCommand_None,
 
+    SmlUpdateCommand_InstanceData,
     SmlUpdateCommand_InstancedData,
 };
 
@@ -166,6 +167,12 @@ struct sml_update_command_header
 {
     SmlUpdateCommand_Type Type;
     sml_u32               Size;
+};
+
+struct sml_update_command_instance_data
+{
+    sml_vector3 Data;
+    sml_u32     Instance;
 };
 
 struct sml_update_command_instanced_data
@@ -198,6 +205,21 @@ SmlInt_PushToUpdateBuffer(sml_renderer *Renderer, void *Data, size_t Size)
 // ===================================
 // User API 
 // ===================================
+
+static void
+Sml_UpdateInstance(sml_renderer *Renderer, sml_vector3 Data, sml_u32 Instance)
+{
+    sml_update_command_header Header = {};
+    Header.Type = SmlUpdateCommand_InstanceData;
+    Header.Size = (sml_u32)sizeof(sml_update_command_instance_data);
+
+    sml_update_command_instance_data Payload = {};
+    Payload.Data     = Data;
+    Payload.Instance = Instance;
+
+    SmlInt_PushToUpdateBuffer(Renderer, &Header , sizeof(sml_update_command_header));
+    SmlInt_PushToUpdateBuffer(Renderer, &Payload, Header.Size);
+}
 
 static void
 Sml_UpdateInstanced(sml_renderer *Renderer, sml_vector3 *Data, sml_u32 Instanced)

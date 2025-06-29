@@ -44,18 +44,7 @@ SmlDx11_DrawInstance(sml_draw_command_instance *Payload, sml_renderer *Renderer)
 
     // VS
     Ctx->VSSetShader(Material->Variant.VertexShader, nullptr, 0);
-
-    {
-        D3D11_MAPPED_SUBRESOURCE Mapped = {};
-        Ctx->Map(Instance->PerObject, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
-
-        sml_matrix4 World = SmlMat4_Identity();
-        memcpy(Mapped.pData, &World, sizeof(World));
-
-        Ctx->Unmap(Instance->PerObject, 0);
-
-        Ctx->VSSetConstantBuffers(1, 1, &Instance->PerObject);
-    }
+    Ctx->VSSetConstantBuffers(1, 1, &Instance->PerObject);
 
     // PS
     Ctx->PSSetConstantBuffers(2, 1, &Material->ConstantBuffer);

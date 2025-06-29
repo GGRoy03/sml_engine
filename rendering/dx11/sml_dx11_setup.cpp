@@ -33,12 +33,6 @@ struct sml_dx11_geometry
     sml_u32       IndexCount;
 };
 
-struct sml_instance_data
-{
-    sml_vector3 Position;
-    sml_u32     Material;
-};
-
 struct sml_dx11_instance
 {
     sml_instance_data Data;
@@ -355,7 +349,7 @@ SmlDx11_SetupMaterial(sml_setup_command_material* Payload, sml_renderer *Rendere
 }
 
 // WARN:
-// 1) Uses free
+// 1) Does not free the mesh data, flag based?
 
 static void
 SmlDx11_SetupInstance(sml_setup_command_instance *Payload, sml_renderer *Renderer)
@@ -388,8 +382,6 @@ SmlDx11_SetupInstance(sml_setup_command_instance *Payload, sml_renderer *Rendere
             Dx11.Device->CreateBuffer(&Desc, &Data, &Instance.Geometry.VertexBuffer);
 
         Sml_Assert(SUCCEEDED(Status));
-
-        free(Payload->Mesh->VertexData);
     }
 
     {
@@ -408,8 +400,6 @@ SmlDx11_SetupInstance(sml_setup_command_instance *Payload, sml_renderer *Rendere
             sml_u32(Payload->Mesh->IndexDataSize / sizeof(sml_u32));
 
         Sml_Assert(SUCCEEDED(Status));
-
-        free(Payload->Mesh->IndexData);
     }
 
     SmlInt_PushToBackendResource(&Renderer->Instances, &Instance, Payload->Instance);

@@ -15,6 +15,21 @@
 // ===================================
 
 static void
+SmlDx11_UpdateInstanceData(sml_update_command_instance_data *Payload,
+                            sml_renderer *Renderer)
+{
+    sml_dx11_instance *Instance = (sml_dx11_instance*)
+        SmlInt_GetBackendResource(&Renderer->Instances, Payload->Instance);
+
+    sml_matrix4 World = SmlMat4_Translation(Payload->Data);
+
+    D3D11_MAPPED_SUBRESOURCE Mapped = {};
+    Dx11.Context->Map(Instance->PerObject, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
+    memcpy(Mapped.pData, &World, sizeof(sml_matrix4));
+    Dx11.Context->Unmap(Instance->PerObject, 0);
+}
+
+static void
 SmlDx11_UpdateInstancedData(sml_update_command_instanced_data * Payload,
                             sml_renderer *Renderer)
 {
@@ -47,6 +62,12 @@ SmlDx11_Update(sml_renderer *Renderer)
 
         switch(Header->Type)
         {
+
+        case SmlUpdateCommand_InstanceData:
+        {
+            auto *Payload = (sml_update_command_instance_data*)(CmdPtr + Offset);
+            SmlDx11_UpdateInstanceData(Payload, Renderer);
+        } break;
 
         case SmlUpdateCommand_InstancedData:
         {

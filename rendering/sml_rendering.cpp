@@ -87,6 +87,12 @@ struct sml_renderer
     sml_renderer_entry_function Playback;
 };
 
+struct sml_instance_data
+{
+    sml_vector3 Position;
+    sml_u32     Material;
+};
+
 // ===================================
 //  Global Variables
 // ===================================
