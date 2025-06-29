@@ -150,5 +150,10 @@ SmlDx11_Initialize(sml_window Window)
     DX11Renderer->Instances.Capacity   = 10;
     DX11Renderer->Instances.SizeOfType = sizeof(sml_dx11_instance);
 
+    DX11Renderer->Instanced.Count      = 0;
+    DX11Renderer->Instanced.Data       = malloc(sizeof(sml_dx11_instanced) * 10);
+    DX11Renderer->Instanced.Capacity   = 10;
+    DX11Renderer->Instanced.SizeOfType = sizeof(sml_dx11_instanced);
+
     return DX11Renderer;
 }

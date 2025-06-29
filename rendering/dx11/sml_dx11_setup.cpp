@@ -46,6 +46,14 @@ struct sml_dx11_instance
     ID3D11Buffer     *PerObject;
 };
 
+struct sml_dx11_instanced
+{
+    sml_u32                   Material;
+    sml_dx11_geometry         Geometry;
+    ID3D11Buffer             *Buffer;
+    ID3D11ShaderResourceView *ResourceView;
+};
+
 // ===================================
 //  Global Variables
 // ===================================
@@ -199,6 +207,13 @@ SmlDx11_GenerateShaderDefines(sml_bit_field Features, D3D_SHADER_MACRO* Defines)
     if (Features & SmlShaderFeat_AlbedoMap)
     {
         Defines[AtEnabled].Name = "HAS_ALBEDO_MAP";
+        Defines[AtEnabled].Definition = "1";
+        AtEnabled++;
+    }
+
+    if (Features & SmlShaderFeat_Instanced)
+    {
+        Defines[AtEnabled].Name       = "HAS_INSTANCING";
         Defines[AtEnabled].Definition = "1";
         AtEnabled++;
     }
@@ -398,6 +413,91 @@ SmlDx11_SetupInstance(sml_setup_command_instance *Payload, sml_renderer *Rendere
     SmlInt_PushToBackendResource(&Renderer->Instances, &Instance, Payload->Instance);
 }
 
+// WARN:
+// 1) Does not free the meshes, flag based?
+// 2) Does one malloc/free per calls. (Keep CPU buffer between frames?)
+
+static void
+SmlDx11_SetupInstanced(sml_setup_command_instanced *Payload, sml_renderer *Renderer)
+{
+    sml_dx11_instanced Instanced = {};
+
+    {
+        D3D11_BUFFER_DESC Desc = {};
+        Desc.ByteWidth = (UINT)Payload->Mesh->VertexDataSize;
+        Desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        Desc.Usage     = D3D11_USAGE_IMMUTABLE;
+
+        D3D11_SUBRESOURCE_DATA Data = {};
+        Data.pSysMem = Payload->Mesh->VertexData;
+
+        HRESULT Status = 
+            Dx11.Device->CreateBuffer(&Desc, &Data, &Instanced.Geometry.VertexBuffer);
+
+        Sml_Assert(SUCCEEDED(Status));
+    }
+
+    {
+        D3D11_BUFFER_DESC Desc = {};
+        Desc.ByteWidth = (UINT)Payload->Mesh->IndexDataSize;
+        Desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+        Desc.Usage     = D3D11_USAGE_IMMUTABLE;
+
+        D3D11_SUBRESOURCE_DATA Data = {};
+        Data.pSysMem = Payload->Mesh->IndexData;
+
+        HRESULT Status = 
+            Dx11.Device->CreateBuffer(&Desc, &Data, &Instanced.Geometry.IndexBuffer);
+
+        Instanced.Geometry.IndexCount = 
+            sml_u32(Payload->Mesh->IndexDataSize / sizeof(sml_u32));
+
+        Sml_Assert(SUCCEEDED(Status));
+    }
+
+    {
+        D3D11_BUFFER_DESC Desc = {};
+        Desc.Usage               = D3D11_USAGE_DYNAMIC;
+        Desc.ByteWidth           = Payload->Count * sizeof(sml_matrix4);
+        Desc.BindFlags           = D3D11_BIND_SHADER_RESOURCE;
+        Desc.CPUAccessFlags      = D3D11_CPU_ACCESS_WRITE;
+        Desc.StructureByteStride = sizeof(sml_matrix4);
+        Desc.MiscFlags           = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+
+        HRESULT Status = Dx11.Device->CreateBuffer(&Desc, nullptr, &Instanced.Buffer);
+        Sml_Assert(SUCCEEDED(Status));
+
+        D3D11_SHADER_RESOURCE_VIEW_DESC SrvDesc = {};
+        SrvDesc.Format              = DXGI_FORMAT_UNKNOWN;
+        SrvDesc.ViewDimension       = D3D11_SRV_DIMENSION_BUFFER;
+        SrvDesc.Buffer.FirstElement = 0;
+        SrvDesc.Buffer.NumElements  = Payload->Count;
+
+        Status = Dx11.Device->CreateShaderResourceView(Instanced.Buffer, &SrvDesc,
+                                                       &Instanced.ResourceView);
+        Sml_Assert(SUCCEEDED(Status));
+
+        size_t       DataSize    = Payload->Count * sizeof(sml_matrix4);
+        sml_matrix4 *CPUMatrices = (sml_matrix4*)malloc(DataSize);
+
+        for(u32 Index = 0; Index < Payload->Count; Index++)
+        {
+            CPUMatrices[Index] = SmlMat4_Translation(Payload->Data[Index]);
+        }
+
+        D3D11_MAPPED_SUBRESOURCE Mapped = {};
+        Dx11.Context->Map(Instanced.Buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
+        memcpy(Mapped.pData, CPUMatrices, DataSize);
+        Dx11.Context->Unmap(Instanced.Buffer, 0);
+
+        free(CPUMatrices);
+    }
+
+    Instanced.Material = Payload->Material;
+
+    SmlInt_PushToBackendResource(&Renderer->Instanced, &Instanced, Payload->Instanced);
+}
+
 static void 
 SmlDx11_Setup(sml_renderer *Renderer)
 {
@@ -422,6 +522,12 @@ SmlDx11_Setup(sml_renderer *Renderer)
         {
             auto *Payload = (sml_setup_command_instance*)(CmdPtr + Offset);
             SmlDx11_SetupInstance(Payload, Renderer);
+        } break;
+
+        case SmlSetupCommand_Instanced:
+        {
+            auto *Payload = (sml_setup_command_instanced*)(CmdPtr + Offset);
+            SmlDx11_SetupInstanced(Payload, Renderer);
         } break;
 
         default:

@@ -5,6 +5,7 @@
 enum SmlShaderFeature_Type
 {
     SmlShaderFeat_AlbedoMap = 1 << 0,
+    SmlShaderFeat_Instanced = 1 << 1,
 
     SmlShaderFeat_Count,
 };
@@ -47,14 +48,26 @@ cbuffer PerFrame : register(b0)
 
 cbuffer PerObject : register(b1)
 {
+    #ifdef HAS_INSTANCING
+
+    #else
     matrix WorldMatrix;
+    #endif
 };
+
+#ifdef HAS_INSTANCING
+StructuredBuffer<matrix> InstanceTransforms : register(t10);
+#endif
 
 struct VertexInput
 {
     float3 Position : POSITION;
     float3 Normal   : NORMAL;
     float2 TexCoord : TEXCOORD0;
+
+    #ifdef HAS_INSTANCING
+    uint InstanceID : SV_InstanceID;
+    #endif
 };
 
 struct VertexOutput
@@ -69,14 +82,21 @@ VertexOutput VSMain(VertexInput input)
 {
     VertexOutput output;
 
-    float4 worldPos = mul(WorldMatrix, float4(input.Position, 1.0));
+    #ifdef HAS_INSTANCING
+    matrix ModelTransform = InstanceTransforms[input.InstanceID];
+    #else
+    matrix ModelTransform = WorldMatrix;
+    #endif
+
+    float4 worldPos = mul(ModelTransform, float4(input.Position, 1.0));
     output.Position = mul(ViewProjection, worldPos);
+
 
     // World position for lighting
     output.WorldPos = worldPos.xyz;
 
     // Transform normal
-    output.Normal = normalize(mul(input.Normal, (float3x3)WorldMatrix));
+    output.Normal = normalize(mul(input.Normal, (float3x3)ModelTransform));
 
     // Pass through texture coordinates
     output.TexCoord = input.TexCoord;
@@ -128,9 +148,3 @@ float4 PSMain(PSInput In) : SV_TARGET
     return float4(Color, 1.0f);
 }
 )";
-
-// ===================================
-// User API
-// ===================================
-
-

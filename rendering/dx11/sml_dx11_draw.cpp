@@ -76,6 +76,69 @@ SmlDx11_DrawInstance(sml_draw_command_instance *Payload, sml_renderer *Renderer)
     Ctx->DrawIndexed(Instance->Geometry.IndexCount, 0, 0);
 }
 
+// NOTE: Is it generally better to update resources just before they are drawn or
+// as we do the work for the frame? Should be the former right?
+
+static void
+SmlDx11_DrawInstanced(sml_draw_command_instanced *Payload, sml_renderer *Renderer)
+{
+    sml_dx11_instanced *Instanced = (sml_dx11_instanced*)
+        SmlInt_GetBackendResource(&Renderer->Instanced, Payload->Instanced);
+
+    sml_dx11_material *Material = (sml_dx11_material*)
+        SmlInt_GetBackendResource(&Renderer->Materials, Instanced->Material);
+
+    ID3D11DeviceContext *Ctx    = Dx11.Context;
+    UINT                 Offset = 0;
+
+    // IA
+    Ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    Ctx->IASetInputLayout(Material->Variant.InputLayout);
+    Ctx->IASetVertexBuffers(0, 1, &Instanced->Geometry.VertexBuffer,
+                            &Material->Variant.Stride, &Offset);
+    Ctx->IASetIndexBuffer(Instanced->Geometry.IndexBuffer, DXGI_FORMAT_R32_UINT ,0);
+
+    // VS
+    Ctx->VSSetShader(Material->Variant.VertexShader, nullptr, 0);
+
+    {
+        size_t       DataSize = Payload->Count * sizeof(sml_matrix4);
+        sml_matrix4* CPUMatrices = (sml_matrix4*)malloc(DataSize);
+
+        for (u32 Index = 0; Index < Payload->Count; Index++)
+        {
+            CPUMatrices[Index] = SmlMat4_Translation(Payload->Data[Index]);
+        }
+
+        D3D11_MAPPED_SUBRESOURCE Mapped = {};
+        Dx11.Context->Map(Instanced->Buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
+        memcpy(Mapped.pData, CPUMatrices, DataSize);
+        Dx11.Context->Unmap(Instanced->Buffer, 0);
+
+        Dx11.Context->VSSetShaderResources(10, 1, &Instanced->ResourceView);
+        
+        free(CPUMatrices);
+    }
+
+    // PS
+    Ctx->PSSetConstantBuffers(2, 1, &Material->ConstantBuffer);
+    Ctx->PSSetSamplers(0, 1, &Material->SamplerState);
+    Ctx->PSSetShader(Material->Variant.PixelShader, nullptr, 0);
+
+    for (u32 Index = 0; Index < SmlMaterial_Count; Index++)
+    {
+        ID3D11ShaderResourceView* View = Material->Sampled[Index].ResourceView;
+
+        if (View)
+        {
+            Ctx->PSSetShaderResources(0, 1, &View);
+        }
+    }
+
+    // Draw
+    Ctx->DrawIndexedInstanced(Instanced->Geometry.IndexCount, Payload->Count, 0, 0, 0);
+}
+
 // WARN:
 // 1) Beginning of frame is kind of messy.
 
@@ -132,6 +195,12 @@ SmlDx11_Playback(sml_renderer *Renderer)
         {
             auto *Payload = (sml_draw_command_instance*)(CmdPtr + Offset);
             SmlDx11_DrawInstance(Payload, Renderer);
+        } break;
+
+        case SmlDrawCommand_Instanced:
+        {
+            auto *Payload = (sml_draw_command_instanced*)(CmdPtr + Offset);
+            SmlDx11_DrawInstanced(Payload, Renderer);
         } break;
 
         default:

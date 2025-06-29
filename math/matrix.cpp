@@ -161,3 +161,31 @@ SmlMat4_Multiply(sml_matrix4 A, sml_matrix4 B)
 
     return Result;
 }
+
+static inline sml_matrix4
+SmlMat4_Translation(sml_vector3 Translation)
+{
+    sml_matrix4 Result;
+
+    Result.m0 = 1.0f;
+    Result.m1 = 0.0f;
+    Result.m2 = 0.0f;
+    Result.m3 = Translation.x;
+
+    Result.m4 = 0.0f;
+    Result.m5 = 1.0f;
+    Result.m6 = 0.0f;
+    Result.m7 = Translation.y;
+
+    Result.m8  = 0.0f;
+    Result.m9  = 0.0f;
+    Result.m10 = 1.0f;
+    Result.m11 = Translation.z;
+
+    Result.m12 = 0.0f;
+    Result.m13 = 0.0f;
+    Result.m14 = 0.0f;
+    Result.m15 = 1.0f;
+
+    return Result;
+}

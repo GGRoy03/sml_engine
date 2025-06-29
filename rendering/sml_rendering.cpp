@@ -74,6 +74,7 @@ struct sml_renderer
     sml_backend_resource Materials;
     sml_backend_resource Groups;
     sml_backend_resource Instances;
+    sml_backend_resource Instanced;
 
     // Entry points
     sml_renderer_entry_function Playback;
