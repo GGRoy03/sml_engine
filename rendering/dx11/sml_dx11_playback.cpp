@@ -479,13 +479,6 @@ SmlDx11_CreateInstanced(sml_setup_command_instanced *Payload, sml_renderer *Rend
 // ===================================
 
 static void
-SmlDx11_UpdateUI()
-{
-    ImGui_ImplDX11_NewFrame();
-    ImGui::NewFrame();
-}
-
-static void
 SmlDx11_UpdateInstanceData(sml_update_command_instance_data *Payload,
                             sml_renderer *Renderer)
 {
@@ -680,11 +673,6 @@ SmlDx11_Playback(sml_renderer *Renderer)
         {
             auto *Payload = (sml_update_command_instanced_data*)(CmdPtr + Offset);
             SmlDx11_UpdateInstancedData(Payload, Renderer);
-        } break;
-
-        case SmlCommand_UI:
-        {
-            SmlDx11_UpdateUI();
         } break;
 
         case SmlCommand_Clear:

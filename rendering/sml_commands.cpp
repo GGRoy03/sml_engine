@@ -10,7 +10,6 @@ enum SmlCommand_Type
     SmlCommand_Instance,
     SmlCommand_Instanced,
 
-    SmlCommand_UI,
     SmlCommand_InstanceData,
     SmlCommand_InstancedData,
 
@@ -195,16 +194,6 @@ Sml_UpdateInstanced(sml_renderer *Renderer, sml_vector3 *Data, sml_instanced Ins
 
     Sml_PushCommand(Renderer, &Header, sizeof(sml_command_header));
     Sml_PushCommand(Renderer, &Payload, Header.Size);
-}
-
-static void
-Sml_UpdateUI(sml_renderer *Renderer)
-{
-    sml_command_header Header = {};
-    Header.Type = SmlCommand_UI;
-    Header.Size = 0;
-
-    Sml_PushCommand(Renderer, &Header, sizeof(sml_command_header));
 }
 
 static void

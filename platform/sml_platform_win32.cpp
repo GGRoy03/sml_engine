@@ -2,9 +2,16 @@
 // Internal Functions.
 // ==========================================
 
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 static LRESULT CALLBACK
 SmlWin32_WindowProc(HWND Handle, UINT Message, WPARAM WParam, LPARAM LParam)
 {
+    if (ImGui_ImplWin32_WndProcHandler(Handle, Message, WParam, LParam))
+    {
+        return TRUE;
+    }
+
     switch(Message)
     {
 
@@ -150,6 +157,8 @@ Sml_UpdateWindow(sml_window *Window, sml_game_controller_input *Inputs)
     SmlWin32_GetClientSize((HWND)Window->Handle, &Window->Width, &Window->Height);
 
     ImGui_ImplWin32_NewFrame();
+    ImGui_ImplDX11_NewFrame();
+    ImGui::NewFrame();
 
     return true;
 }
