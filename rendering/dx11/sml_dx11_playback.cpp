@@ -51,10 +51,6 @@ struct sml_dx11_instanced
 };
 
 // ===================================
-//  Global Variables
-// ===================================
-
-// ===================================
 // Internal Helpers
 // ===================================
 
@@ -251,12 +247,11 @@ SmlDx11_CreateInputLayout(ID3DBlob* VertexBlob, UINT* OutStride)
 }
 
 // ===================================
-// API Implementation
+// Update Commands API
 // ===================================
 
-
 static void
-SmlDx11_SetupMaterial(sml_setup_command_material* Payload, sml_renderer *Renderer)
+SmlDx11_CreateMaterial(sml_setup_command_material* Payload, sml_renderer *Renderer)
 {
     HRESULT           Status = S_OK;
     sml_dx11_material Material = {};
@@ -352,10 +347,9 @@ SmlDx11_SetupMaterial(sml_setup_command_material* Payload, sml_renderer *Rendere
 // 1) Does not free the mesh data, flag based?
 
 static void
-SmlDx11_SetupInstance(sml_setup_command_instance *Payload, sml_renderer *Renderer)
+SmlDx11_CreateInstance(sml_setup_command_instance *Payload, sml_renderer *Renderer)
 {
     sml_dx11_instance Instance = {};
-    Instance.Data.Position = Payload->Position;
     Instance.Data.Material = Payload->Material;
 
     {
@@ -412,7 +406,7 @@ SmlDx11_SetupInstance(sml_setup_command_instance *Payload, sml_renderer *Rendere
 // 2) Uses malloc
 
 static void
-SmlDx11_SetupInstanced(sml_setup_command_instanced *Payload, sml_renderer *Renderer)
+SmlDx11_CreateInstanced(sml_setup_command_instanced *Payload, sml_renderer *Renderer)
 {
     sml_dx11_instanced Instanced = {};
 
@@ -480,48 +474,252 @@ SmlDx11_SetupInstanced(sml_setup_command_instanced *Payload, sml_renderer *Rende
                                  (sml_u32)Payload->Instanced);
 }
 
-static void 
-SmlDx11_Setup(sml_renderer *Renderer)
-{
-    sml_u8 *CmdPtr = (sml_u8*)Renderer->OfflinePushBase;
-    size_t  Offset = 0;
+// ===================================
+// Update Commands API
+// ===================================
 
-    while(Offset < Renderer->OfflinePushSize)
+static void
+SmlDx11_UpdateUI()
+{
+    ImGui_ImplDX11_NewFrame();
+    ImGui::NewFrame();
+}
+
+static void
+SmlDx11_UpdateInstanceData(sml_update_command_instance_data *Payload,
+                            sml_renderer *Renderer)
+{
+    sml_dx11_instance *Instance = (sml_dx11_instance*)
+        SmlInt_GetBackendResource(&Renderer->Instances, (sml_u32)Payload->Instance);
+
+    sml_matrix4 World = SmlMat4_Translation(Payload->Data);
+
+    D3D11_MAPPED_SUBRESOURCE Mapped = {};
+    Dx11.Context->Map(Instance->PerObject, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
+    memcpy(Mapped.pData, &World, sizeof(sml_matrix4));
+    Dx11.Context->Unmap(Instance->PerObject, 0);
+}
+
+static void
+SmlDx11_UpdateInstancedData(sml_update_command_instanced_data * Payload,
+                            sml_renderer *Renderer)
+{
+    sml_dx11_instanced *Instanced = (sml_dx11_instanced*)
+        SmlInt_GetBackendResource(&Renderer->Instanced, (sml_u32)Payload->Instanced);
+
+    size_t DataSize = Instanced->Count * sizeof(sml_matrix4);
+
+    for (u32 Index = 0; Index < Instanced->Count; Index++)
     {
-        auto *Header = (sml_setup_command_header*)(CmdPtr + Offset);
-        Offset      += sizeof(sml_setup_command_header);
+        Instanced->CPUMapped[Index] = SmlMat4_Translation(Payload->Data[Index]);
+    }
+
+    D3D11_MAPPED_SUBRESOURCE Mapped = {};
+    Dx11.Context->Map(Instanced->Buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
+    memcpy(Mapped.pData, Instanced->CPUMapped, DataSize);
+    Dx11.Context->Unmap(Instanced->Buffer, 0);
+}
+
+// ===================================
+// Drawing Commands API
+// ===================================
+
+static void
+SmlDx11_DrawClearScreen(sml_draw_command_clear *Payload)
+{
+    Dx11.Context->ClearRenderTargetView(Dx11.RenderView, &Payload->Color.x);
+    Dx11.Context->ClearDepthStencilView(Dx11.DepthView,
+                                        D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
+                                        1, 0);
+}
+
+static void
+SmlDx11_DrawInstance(sml_draw_command_instance *Payload, sml_renderer *Renderer)
+{
+    sml_dx11_instance *Instance = (sml_dx11_instance*)
+        SmlInt_GetBackendResource(&Renderer->Instances, (sml_u32)Payload->Instance);
+
+    sml_dx11_material *Material = (sml_dx11_material*)
+        SmlInt_GetBackendResource(&Renderer->Materials,
+                                  (sml_u32)Instance->Data.Material);
+
+    ID3D11DeviceContext *Ctx    = Dx11.Context;
+    UINT                 Offset = 0;
+
+    Ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    Ctx->IASetInputLayout(Material->Variant.InputLayout);
+    Ctx->IASetVertexBuffers(0, 1, &Instance->Geometry.VertexBuffer,
+                            &Material->Variant.Stride, &Offset);
+    Ctx->IASetIndexBuffer(Instance->Geometry.IndexBuffer, DXGI_FORMAT_R32_UINT ,0);
+
+    Ctx->VSSetShader(Material->Variant.VertexShader, nullptr, 0);
+    Ctx->VSSetConstantBuffers(1, 1, &Instance->PerObject);
+
+    Ctx->PSSetConstantBuffers(2, 1, &Material->ConstantBuffer);
+    Ctx->PSSetSamplers(0, 1, &Material->SamplerState);
+    Ctx->PSSetShader(Material->Variant.PixelShader, nullptr, 0);
+
+    for (u32 Index = 0; Index < SmlMaterial_Count; Index++)
+    {
+        ID3D11ShaderResourceView* View = Material->Sampled[Index].ResourceView;
+
+        if (View)
+        {
+            Ctx->PSSetShaderResources(0, 1, &View);
+        }
+    }
+
+    Ctx->DrawIndexed(Instance->Geometry.IndexCount, 0, 0);
+}
+
+static void
+SmlDx11_DrawInstanced(sml_draw_command_instanced *Payload, sml_renderer *Renderer)
+{
+    sml_dx11_instanced *Instanced = (sml_dx11_instanced*)
+        SmlInt_GetBackendResource(&Renderer->Instanced, (sml_u32)Payload->Instanced);
+
+    sml_dx11_material *Material = (sml_dx11_material*)
+        SmlInt_GetBackendResource(&Renderer->Materials, (sml_u32)Instanced->Material);
+
+    ID3D11DeviceContext *Ctx    = Dx11.Context;
+    UINT                 Offset = 0;
+
+    Ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    Ctx->IASetInputLayout(Material->Variant.InputLayout);
+    Ctx->IASetVertexBuffers(0, 1, &Instanced->Geometry.VertexBuffer,
+                            &Material->Variant.Stride, &Offset);
+    Ctx->IASetIndexBuffer(Instanced->Geometry.IndexBuffer, DXGI_FORMAT_R32_UINT ,0);
+
+    Ctx->VSSetShader(Material->Variant.VertexShader, nullptr, 0);
+    Ctx->VSSetShaderResources(10, 1, &Instanced->ResourceView);
+
+    Ctx->PSSetConstantBuffers(2, 1, &Material->ConstantBuffer);
+    Ctx->PSSetSamplers(0, 1, &Material->SamplerState);
+    Ctx->PSSetShader(Material->Variant.PixelShader, nullptr, 0);
+
+    for (u32 Index = 0; Index < SmlMaterial_Count; Index++)
+    {
+        ID3D11ShaderResourceView* View = Material->Sampled[Index].ResourceView;
+
+        if (View)
+        {
+            Ctx->PSSetShaderResources(0, 1, &View);
+        }
+    }
+
+    Ctx->DrawIndexedInstanced(Instanced->Geometry.IndexCount, Instanced->Count,
+                              0, 0, 0);
+}
+
+//
+
+static void
+SmlDx11_Playback(sml_renderer *Renderer)
+{
+    ID3D11DeviceContext *Ctx = Dx11.Context;
+
+    // =============================================================
+    Ctx->OMSetRenderTargets(1, &Dx11.RenderView, Dx11.DepthView);
+    Ctx->RSSetViewports(1, &Dx11.Viewport);
+
+    if(Dx11.CameraBuffer == nullptr)
+    {
+        D3D11_BUFFER_DESC CBufferDesc = {};
+        CBufferDesc.ByteWidth      = sizeof(sml_matrix4);
+        CBufferDesc.BindFlags      = D3D11_BIND_CONSTANT_BUFFER;
+        CBufferDesc.Usage          = D3D11_USAGE_DYNAMIC;
+        CBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+        HRESULT Status = Dx11.Device->CreateBuffer(&CBufferDesc, nullptr, &Dx11.CameraBuffer);
+        Sml_Assert(SUCCEEDED(Status));
+    }
+
+    D3D11_MAPPED_SUBRESOURCE Mapped;
+    Ctx->Map(Dx11.CameraBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
+    memcpy(Mapped.pData, &Renderer->CameraData, sizeof(sml_matrix4));
+    Ctx->Unmap(Dx11.CameraBuffer, 0);
+    Ctx->VSSetConstantBuffers(0, 1, &Dx11.CameraBuffer);
+
+    // =============================================================
+
+    sml_u8   *CmdPtr = (sml_u8*)Renderer->CommandPushBase;
+    size_t    Offset = 0;
+
+    while(Offset < Renderer->CommandPushSize)
+    {
+        sml_command_header *Header = (sml_command_header*)(CmdPtr + Offset);
+        Offset += sizeof(sml_command_header);
 
         switch(Header->Type)
         {
-
-        case SmlSetupCommand_Material:
+        case SmlCommand_Material:
         {
             auto *Payload = (sml_setup_command_material*)(CmdPtr + Offset);
-            SmlDx11_SetupMaterial(Payload, Renderer);
+            SmlDx11_CreateMaterial(Payload, Renderer);
         } break;
 
-        case SmlSetupCommand_Instance:
+        case SmlCommand_Instance:
         {
             auto *Payload = (sml_setup_command_instance*)(CmdPtr + Offset);
-            SmlDx11_SetupInstance(Payload, Renderer);
+            SmlDx11_CreateInstance(Payload, Renderer);
         } break;
 
-        case SmlSetupCommand_Instanced:
+        case SmlCommand_Instanced:
         {
             auto *Payload = (sml_setup_command_instanced*)(CmdPtr + Offset);
-            SmlDx11_SetupInstanced(Payload, Renderer);
+            SmlDx11_CreateInstanced(Payload, Renderer);
+        } break;
+
+        case SmlCommand_InstanceData:
+        {
+            auto *Payload = (sml_update_command_instance_data*)(CmdPtr + Offset);
+            SmlDx11_UpdateInstanceData(Payload, Renderer);
+        } break;
+
+        case SmlCommand_InstancedData:
+        {
+            auto *Payload = (sml_update_command_instanced_data*)(CmdPtr + Offset);
+            SmlDx11_UpdateInstancedData(Payload, Renderer);
+        } break;
+
+        case SmlCommand_UI:
+        {
+            SmlDx11_UpdateUI();
+        } break;
+
+        case SmlCommand_Clear:
+        {
+            auto *Payload = (sml_draw_command_clear*)(CmdPtr + Offset);
+            SmlDx11_DrawClearScreen(Payload);
+        } break;
+
+        case SmlCommand_DrawInstance:
+        {
+            auto *Payload = (sml_draw_command_instance*)(CmdPtr + Offset);
+            SmlDx11_DrawInstance(Payload, Renderer);
+        } break;
+
+        case SmlCommand_DrawInstanced:
+        {
+            auto *Payload = (sml_draw_command_instanced*)(CmdPtr + Offset);
+            SmlDx11_DrawInstanced(Payload, Renderer);
         } break;
 
         default:
         {
-            Sml_Assert(!"Unknown setup command type.");
+            Sml_Assert(!"Unknown command type.");
             return;
-        } break;
-
+        }
         }
 
         Offset += Header->Size;
     }
 
-    Renderer->OfflinePushSize = 0;
+    // TODO: Make this a command
+    ImGui::Render();
+    ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
+    Dx11.SwapChain->Present(1, 0);
+
+    Renderer->CommandPushSize = 0;
 }

@@ -39,9 +39,7 @@ static sml_dx11_context Dx11;
 // Directx11 Files
 // ===================================
 
-#include "sml_dx11_setup.cpp"
-#include "sml_dx11_update.cpp"
-#include "sml_dx11_draw.cpp"
+#include "sml_dx11_playback.cpp"
 
 // ===================================
 // API Implementation
@@ -127,8 +125,6 @@ SmlDx11_Initialize(sml_window Window)
     Sml_Assert(SUCCEEDED(Status));
 
     auto *DX11Renderer     = (sml_renderer*)malloc(sizeof(sml_renderer));
-    DX11Renderer->Setup    = SmlDx11_Setup;
-    DX11Renderer->Update   = SmlDx11_Update;
     DX11Renderer->Playback = SmlDx11_Playback;
 
     DX11Renderer->Materials.Count      = 0;
@@ -145,6 +141,8 @@ SmlDx11_Initialize(sml_window Window)
     DX11Renderer->Instanced.Data       = malloc(sizeof(sml_dx11_instanced) * 10);
     DX11Renderer->Instanced.Capacity   = 10;
     DX11Renderer->Instanced.SizeOfType = sizeof(sml_dx11_instanced);
+
+    ImGui_ImplDX11_Init(Dx11.Device, Dx11.Context);
 
     return DX11Renderer;
 }

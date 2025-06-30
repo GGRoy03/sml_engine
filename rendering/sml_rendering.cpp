@@ -61,20 +61,9 @@ struct sml_backend_resource
 
 struct sml_renderer
 {
-    // Offline Push Buffer
-    void  *OfflinePushBase;
-    size_t OfflinePushSize;
-    size_t OfflinePushCapacity;
-
-    // Update Push Buffer
-    void  *UpdatePushBase;
-    size_t UpdatePushSize;
-    size_t UpdatePushCapacity;
-
-    // Runtime Push Buffer
-    void  *RuntimePushBase;
-    size_t RuntimePushSize;
-    size_t RuntimePushCapacity;
+    void  *CommandPushBase;
+    size_t CommandPushSize;
+    size_t CommandPushCapacity;
 
     // Misc data
     sml_matrix4 CameraData;
@@ -85,9 +74,7 @@ struct sml_renderer
     sml_backend_resource Instances;
     sml_backend_resource Instanced;
 
-    // Entry points
-    sml_renderer_entry_function Setup;
-    sml_renderer_entry_function Update;
+    // Entry point
     sml_renderer_entry_function Playback;
 };
 
@@ -257,17 +244,9 @@ Sml_CreateRenderer(SmlRenderer_Backend Backend, sml_window Window)
 
     }
 
-    Renderer->UpdatePushBase     = malloc(Sml_Kilobytes(5));
-    Renderer->UpdatePushSize     = 0;
-    Renderer->UpdatePushCapacity = Sml_Kilobytes(5);
-
-    Renderer->OfflinePushBase     = malloc(Sml_Kilobytes(5));
-    Renderer->OfflinePushSize     = 0;
-    Renderer->OfflinePushCapacity = Sml_Kilobytes(5);
-
-    Renderer->RuntimePushBase     = malloc(Sml_Kilobytes(5));
-    Renderer->RuntimePushSize     = 0;
-    Renderer->RuntimePushCapacity = Sml_Kilobytes(5);
+    Renderer->CommandPushBase     = malloc(Sml_Kilobytes(5));
+    Renderer->CommandPushSize     = 0;
+    Renderer->CommandPushCapacity = Sml_Kilobytes(5);
 
     return Renderer;
 }
