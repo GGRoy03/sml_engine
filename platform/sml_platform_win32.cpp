@@ -132,6 +132,12 @@ Sml_CreateWindow(sml_i32 Width, sml_i32 Height, const char *Title)
 
     SmlWin32_GetClientSize((HWND)SmlWindow.Handle, &SmlWindow.Width, &SmlWindow.Height);
 
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui_ImplWin32_Init(SmlWindow.Handle);
+
+    ImGui::StyleColorsDark();
+
     return SmlWindow;
 }
 
@@ -142,6 +148,8 @@ Sml_UpdateWindow(sml_window *Window, sml_game_controller_input *Inputs)
     if(!WindowClosed) return false;
 
     SmlWin32_GetClientSize((HWND)Window->Handle, &Window->Width, &Window->Height);
+
+    ImGui_ImplWin32_NewFrame();
 
     return true;
 }

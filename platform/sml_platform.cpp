@@ -50,6 +50,9 @@ bool Sml_IsKeyDown(char Char);
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#include "third_party/imgui/backends/imgui_impl_win32.h"
+#include "third_party/imgui/backends/imgui_impl_dx11.h"
+
 #include "sml_platform_win32.cpp"
 
 #endif
