@@ -6,16 +6,9 @@ enum SmlShaderFeature_Type
 {
     SmlShaderFeat_AlbedoMap = 1 << 0,
     SmlShaderFeat_Instanced = 1 << 1,
+    SmlShaderFeat_Color     = 1 << 2,
 
     SmlShaderFeat_Count,
-};
-
-enum SmlShaderCompile_Result
-{
-    SmlShaderCompile_Success,
-    SmlShaderCompile_ErrorVertexShader,
-    SmlShaderCompile_ErrorFragmentShader,
-    SmlShaderCompile_ErrorLinking,
 };
 
 enum SmlShader_Flag
@@ -63,7 +56,12 @@ struct VertexInput
 {
     float3 Position : POSITION;
     float3 Normal   : NORMAL;
+
+    #ifdef HAS_COLORS
+    float3 Color : COLOR;
+    #else
     float2 TexCoord : TEXCOORD0;
+    #endif
 
     #ifdef HAS_INSTANCING
     uint InstanceID : SV_InstanceID;
@@ -75,7 +73,12 @@ struct VertexOutput
     float4 Position : SV_POSITION;
     float3 WorldPos : WORLD_POSITION;
     float3 Normal   : NORMAL;
+
+    #ifdef HAS_COLORS
+    float3 Color : COLOR;
+    #else
     float2 TexCoord : TEXCOORD0;
+    #endif
 };
 
 VertexOutput VSMain(VertexInput input)
@@ -98,8 +101,11 @@ VertexOutput VSMain(VertexInput input)
     // Transform normal
     output.Normal = normalize(mul(input.Normal, (float3x3)ModelTransform));
 
-    // Pass through texture coordinates
+    #ifdef HAS_COLORS
+    output.Color = input.Color;
+    #else
     output.TexCoord = input.TexCoord;
+    #endif
 
     return output;
 }
@@ -133,7 +139,12 @@ struct PSInput
     float4 Position : SV_POSITION;
     float3 WorldPos : WORLD_POSITION;
     float3 Normal   : NORMAL;
+
+    #ifdef HAS_COLORS
+    float3 Color : COLOR;
+    #else
     float2 TexCoord : TEXCOORD0;
+    #endif
 };
 
 Texture2D    AlbedoText : register(t0);
@@ -143,7 +154,7 @@ float4 PSMain(PSInput In) : SV_TARGET
     #ifdef HAS_ALBEDO_MAP
     float3 Color = AlbedoText.Sample(MatSampler, In.TexCoord).rgb * AlbedoFactor;
     #else
-    float3 Color = float3(1.0f, 1.0f, 1.0f);
+    float3 Color = Color;
     #endif
     return float4(Color, 1.0f);
 }

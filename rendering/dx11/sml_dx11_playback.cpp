@@ -133,9 +133,9 @@ SmlDx11_CreateVertexShader(sml_bit_field Flags, D3D_SHADER_MACRO* Defines,
 {
     HRESULT Status = S_OK;
 
-    const char* EntryPoint = "VSMain";
-    const char* Profile = "vs_5_0";
-    const char* ByteCode = SmlUberVertexShader_HLSL;
+    const char*  EntryPoint   = "VSMain";
+    const char*  Profile      = "vs_5_0";
+    const char*  ByteCode     = SmlUberVertexShader_HLSL;
     const SIZE_T ByteCodeSize = strlen(SmlUberVertexShader_HLSL);
 
     UINT CompileFlags = Flags & SmlShader_CompileDebug
@@ -143,12 +143,12 @@ SmlDx11_CreateVertexShader(sml_bit_field Flags, D3D_SHADER_MACRO* Defines,
         : D3DCOMPILE_OPTIMIZATION_LEVEL3;
 
     *OutShaderBlob = SmlDx11_CompileShader(ByteCode, ByteCodeSize, EntryPoint,
-        Profile, Defines, CompileFlags);
+                                           Profile, Defines, CompileFlags);
 
     ID3D11VertexShader* VertexShader = nullptr;
     Status = Dx11.Device->CreateVertexShader((*OutShaderBlob)->GetBufferPointer(),
-        (*OutShaderBlob)->GetBufferSize(),
-        nullptr, &VertexShader);
+                                             (*OutShaderBlob)->GetBufferSize(),
+                                             nullptr, &VertexShader);
     if (FAILED(Status))
     {
         Sml_Assert(!"SML_DX11: Failed to compile vertex shader.");
@@ -164,9 +164,9 @@ SmlDx11_CreatePixelShader(sml_bit_field Flags, D3D_SHADER_MACRO* Defines)
     HRESULT   Status = S_OK;
     ID3DBlob* ShaderBlob = nullptr;
 
-    const char* EntryPoint = "PSMain";
-    const char* Profile = "ps_5_0";
-    const char* ByteCode = SmlUberPixelShader_HLSL;
+    const char*  EntryPoint   = "PSMain";
+    const char*  Profile      = "ps_5_0";
+    const char*  ByteCode     = SmlUberPixelShader_HLSL;
     const SIZE_T ByteCodeSize = strlen(SmlUberPixelShader_HLSL);
 
     UINT CompileFlags = Flags & SmlShader_CompileDebug
@@ -174,12 +174,12 @@ SmlDx11_CreatePixelShader(sml_bit_field Flags, D3D_SHADER_MACRO* Defines)
         : D3DCOMPILE_OPTIMIZATION_LEVEL3;
 
     ShaderBlob = SmlDx11_CompileShader(ByteCode, ByteCodeSize, EntryPoint,
-        Profile, Defines, CompileFlags);
+                                       Profile, Defines, CompileFlags);
 
     ID3D11PixelShader* PixelShader = nullptr;
     Status = Dx11.Device->CreatePixelShader(ShaderBlob->GetBufferPointer(),
-        ShaderBlob->GetBufferSize(),
-        nullptr, &PixelShader);
+                                            ShaderBlob->GetBufferSize(),
+                                            nullptr, &PixelShader);
     ShaderBlob->Release();
 
     if (FAILED(Status))
@@ -209,34 +209,71 @@ SmlDx11_GenerateShaderDefines(sml_bit_field Features, D3D_SHADER_MACRO* Defines)
         Defines[AtEnabled].Definition = "1";
         AtEnabled++;
     }
+
+    if(Features & SmlShaderFeat_Color)
+    {
+        Defines[AtEnabled].Name       = "HAS_COLORS";
+        Defines[AtEnabled].Definition = "1";
+    }
 }
 
-// NOTE: For now this simply returns the hardcoded layout for the vertex
-// shader.
+// WARN:
+// 1) This is not very scalable and has some hardcoded behavior
+
 static ID3D11InputLayout*
-SmlDx11_CreateInputLayout(ID3DBlob* VertexBlob, UINT* OutStride)
+SmlDx11_CreateInputLayout(sml_bit_field Features, ID3DBlob* VertexBlob,
+                          UINT* OutStride)
 {
     HRESULT Status = S_OK;
 
-    D3D11_INPUT_ELEMENT_DESC Elements[3] =
+    D3D11_INPUT_ELEMENT_DESC Elements[32] = {};
+
+    Elements[0].SemanticName         = "Position";
+    Elements[0].SemanticIndex        = 0;
+    Elements[0].Format               = DXGI_FORMAT_R32G32B32_FLOAT;
+    Elements[0].InputSlot            = 0;
+    Elements[0].AlignedByteOffset    = 0;
+    Elements[0].InputSlotClass       = D3D11_INPUT_PER_VERTEX_DATA;
+    Elements[0].InstanceDataStepRate = 0;
+
+    Elements[1].SemanticName         = "NORMAL";
+    Elements[1].SemanticIndex        = 0;
+    Elements[1].Format               = DXGI_FORMAT_R32G32B32_FLOAT;
+    Elements[1].InputSlot            = 0;
+    Elements[1].AlignedByteOffset    = D3D11_APPEND_ALIGNED_ELEMENT;
+    Elements[1].InputSlotClass       = D3D11_INPUT_PER_VERTEX_DATA;
+    Elements[1].InstanceDataStepRate = 0;
+
+    if(Features & SmlShaderFeat_Color)
     {
-        {"POSITION",0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
-          D3D11_INPUT_PER_VERTEX_DATA, 0},
+        Elements[2].SemanticName         = "COLOR";
+        Elements[2].SemanticIndex        = 0;
+        Elements[2].Format               = DXGI_FORMAT_R32G32B32_FLOAT;
+        Elements[2].InputSlot            = 0;
+        Elements[2].AlignedByteOffset    = D3D11_APPEND_ALIGNED_ELEMENT;
+        Elements[2].InputSlotClass       = D3D11_INPUT_PER_VERTEX_DATA;
+        Elements[2].InstanceDataStepRate = 0;
 
-        {"NORMAL", 0 ,DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT,
-          D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        *OutStride = 9 * sizeof(f32);
+    }
+    else
+    {
+        Elements[2].SemanticName         = "TEXCOORD0";
+        Elements[2].SemanticIndex        = 0;
+        Elements[2].Format               = DXGI_FORMAT_R32G32_FLOAT;
+        Elements[2].InputSlot            = 0;
+        Elements[2].AlignedByteOffset    = D3D11_APPEND_ALIGNED_ELEMENT;
+        Elements[2].InputSlotClass       = D3D11_INPUT_PER_VERTEX_DATA;
+        Elements[2].InstanceDataStepRate = 0;
 
-        {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT,
-          D3D11_INPUT_PER_VERTEX_DATA, 0 },
-    };
+        *OutStride = 8 * sizeof(f32);
+    }
 
     ID3D11InputLayout* InputLayout = nullptr;
     Status = Dx11.Device->CreateInputLayout(Elements, 3,
-        VertexBlob->GetBufferPointer(),
-        VertexBlob->GetBufferSize(),
-        &InputLayout);
-    *OutStride = 8 * sizeof(sml_f32);
-
+                                            VertexBlob->GetBufferPointer(),
+                                            VertexBlob->GetBufferSize(),
+                                            &InputLayout);
     if (FAILED(Status))
     {
         Sml_Assert(!"Failed to create input layout.");
@@ -265,7 +302,8 @@ SmlDx11_CreateMaterial(sml_setup_command_material* Payload)
         SmlDx11_CreateVertexShader(Payload->Flags, Defines, &VSBlob);
 
     Material.Variant.InputLayout =
-        SmlDx11_CreateInputLayout(VSBlob, &Material.Variant.Stride);
+        SmlDx11_CreateInputLayout(Payload->Features, VSBlob,
+                                  &Material.Variant.Stride);
 
     Material.Variant.PixelShader =
         SmlDx11_CreatePixelShader(Payload->Flags, Defines);

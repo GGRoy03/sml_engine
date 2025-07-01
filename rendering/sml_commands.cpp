@@ -210,6 +210,9 @@ Sml_DrawClearScreen(sml_vector4 Color)
     Sml_PushCommand(&Payload, Header.Size);
 }
 
+// BUG: Pretty sure this is bugged if we dot want to bind a material (color).
+// Not this piece of code, but the backend implementation.
+
 static void
 Sml_DrawInstance(sml_instance Instance)
 {

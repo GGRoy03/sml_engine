@@ -5,6 +5,13 @@ struct sml_vertex
     sml_vector2 UV;
 };
 
+struct sml_vertex_color
+{
+    sml_vector3 Position;
+    sml_vector3 Normal;
+    sml_vector3 Color;
+};
+
 static sml_vertex CubeVertices[] =
 {
     // Front face (Z+)
@@ -62,11 +69,11 @@ static u32 CubeIndices[] =
 
 struct sml_mesh
 {
-    void  *VertexData;
-    size_t VertexDataSize;
+    void   *VertexData;
+    size_t  VertexDataSize;
 
-    void  *IndexData;
-    size_t IndexDataSize;
+    sml_u32 *IndexData;
+    size_t   IndexDataSize;
 };
 
 static sml_mesh
