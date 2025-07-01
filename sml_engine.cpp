@@ -25,7 +25,8 @@ enum class sml_instanced : sml_u32 {};
 #include "../code/third_party/imgui/imgui.h"
 
 #pragma warning(push)
-#pragma warning(disable: 4505) // Unreferenced functions
+#pragma warning(disable: 4505 4996) // Unreferenced functions | Unsafe functions
+
 
 // Math
 #include "math/vector.cpp"
