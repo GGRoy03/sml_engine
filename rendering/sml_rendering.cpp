@@ -46,7 +46,7 @@ struct sml_material_constants
 
 
 struct sml_renderer;
-using sml_renderer_entry_function = void(*)(sml_renderer *Renderer);
+using sml_renderer_entry_function = void(*)();
 
 // NOTE: I would be nice to get the actual type via a template of some sorts.
 // It would reduce the amounts of random casts all around the code. Could
@@ -77,6 +77,8 @@ struct sml_renderer
     // Entry point
     sml_renderer_entry_function Playback;
 };
+
+static sml_renderer* Renderer;
 
 struct sml_instance_data
 {
@@ -222,8 +224,6 @@ SmlInt_GetBackendResource(sml_backend_resource *Resource, sml_u32 Index)
 static sml_renderer*
 Sml_CreateRenderer(SmlRenderer_Backend Backend, sml_window Window)
 {
-    sml_renderer *Renderer = nullptr;
-
     switch(Backend)
     {
 
@@ -231,7 +231,7 @@ Sml_CreateRenderer(SmlRenderer_Backend Backend, sml_window Window)
 
     case SmlRenderer_DirectX11:
     {
-        Renderer = SmlDx11_Initialize(Window);
+        SmlDx11_Initialize(Window);
     } break;
 
 #endif

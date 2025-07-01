@@ -81,7 +81,7 @@ struct sml_draw_command_instanced
 ///////////////////////////////////////////////////////
 
 static void
-Sml_PushCommand(sml_renderer *Renderer, void *Data, size_t Size)
+Sml_PushCommand(void *Data, size_t Size)
 {
     if(Renderer->CommandPushSize + Size <= Renderer->CommandPushCapacity)
     {
@@ -101,8 +101,8 @@ Sml_PushCommand(sml_renderer *Renderer, void *Data, size_t Size)
 ///////////////////////////////////////////////////////
 
 static sml_u32
-Sml_SetupMaterial(sml_renderer *Renderer, sml_material_texture *MatTexArray,
-                  sml_u32 MatTexCount, sml_bit_field Features, sml_bit_field Flags)
+Sml_SetupMaterial(sml_material_texture *MatTexArray, sml_u32 MatTexCount,
+                  sml_bit_field Features, sml_bit_field Flags)
 {
     size_t PayloadSize = sizeof(sml_setup_command_material);
 
@@ -117,36 +117,36 @@ Sml_SetupMaterial(sml_renderer *Renderer, sml_material_texture *MatTexArray,
     Payload.Flags                = Flags;
     Payload.MaterialIndex        = Renderer->Materials.Count;
 
-    Sml_PushCommand(Renderer, &Header, sizeof(sml_command_header));
-    Sml_PushCommand(Renderer, &Payload, PayloadSize);
+    Sml_PushCommand(&Header, sizeof(sml_command_header));
+    Sml_PushCommand(&Payload, PayloadSize);
 
     ++Renderer->Materials.Count;
 
     return Payload.MaterialIndex;
 }
 
-static void
-Sml_SetupInstance(sml_renderer *Renderer, sml_entity *Entity)
+static sml_instance
+Sml_SetupInstance(sml_mesh *Mesh, sml_u32 Material)
 {
     sml_command_header Header = {};
     Header.Type = SmlCommand_Instance;
     Header.Size = (sml_u32)sizeof(sml_setup_command_instance);
 
     sml_setup_command_instance Payload = {};
-    Payload.Material = Entity->Material;
+    Payload.Material = Material;
     Payload.Instance = (sml_instance)Renderer->Instances.Count;
-    Payload.Mesh     = Entity->Mesh;
+    Payload.Mesh     = Mesh;
 
-    Sml_PushCommand(Renderer, &Header, sizeof(sml_command_header));
-    Sml_PushCommand(Renderer, &Payload, Header.Size);
+    Sml_PushCommand(&Header, sizeof(sml_command_header));
+    Sml_PushCommand(&Payload, Header.Size);
 
     ++Renderer->Instances.Count;
-    Entity->BackendHandle.Instance = Payload.Instance;
+
+    return Payload.Instance;
 }
 
 static sml_instanced
-Sml_SetupInstanced(sml_renderer *Renderer, sml_u32 Material, sml_mesh *Mesh,
-                   sml_u32 InstanceCount)
+Sml_SetupInstanced(sml_u32 Material, sml_mesh *Mesh, sml_u32 InstanceCount)
 {
     sml_command_header Header = {};
     Header.Type = SmlCommand_Instanced;
@@ -158,8 +158,8 @@ Sml_SetupInstanced(sml_renderer *Renderer, sml_u32 Material, sml_mesh *Mesh,
     Payload.Mesh      = Mesh;
     Payload.Count     = InstanceCount;
 
-    Sml_PushCommand(Renderer, &Header, sizeof(sml_command_header));
-    Sml_PushCommand(Renderer, &Payload, Header.Size);
+    Sml_PushCommand(&Header, sizeof(sml_command_header));
+    Sml_PushCommand(&Payload, Header.Size);
 
     ++Renderer->Instances.Count;
 
@@ -167,7 +167,7 @@ Sml_SetupInstanced(sml_renderer *Renderer, sml_u32 Material, sml_mesh *Mesh,
 }
 
 static void
-Sml_UpdateInstance(sml_renderer *Renderer, sml_vector3 Data, sml_instance Instance)
+Sml_UpdateInstance(sml_vector3 Data, sml_instance Instance)
 {
     sml_command_header Header = {};
     Header.Type = SmlCommand_InstanceData;
@@ -177,12 +177,12 @@ Sml_UpdateInstance(sml_renderer *Renderer, sml_vector3 Data, sml_instance Instan
     Payload.Data     = Data;
     Payload.Instance = Instance;
 
-    Sml_PushCommand(Renderer, &Header, sizeof(sml_command_header));
-    Sml_PushCommand(Renderer, &Payload, Header.Size);
+    Sml_PushCommand(&Header, sizeof(sml_command_header));
+    Sml_PushCommand(&Payload, Header.Size);
 }
 
 static void
-Sml_UpdateInstanced(sml_renderer *Renderer, sml_vector3 *Data, sml_instanced Instanced)
+Sml_UpdateInstanced(sml_vector3 *Data, sml_instanced Instanced)
 {
     sml_command_header Header = {};
     Header.Type = SmlCommand_InstancedData;
@@ -192,12 +192,12 @@ Sml_UpdateInstanced(sml_renderer *Renderer, sml_vector3 *Data, sml_instanced Ins
     Payload.Data      = Data;
     Payload.Instanced = Instanced;
 
-    Sml_PushCommand(Renderer, &Header, sizeof(sml_command_header));
-    Sml_PushCommand(Renderer, &Payload, Header.Size);
+    Sml_PushCommand(&Header, sizeof(sml_command_header));
+    Sml_PushCommand(&Payload, Header.Size);
 }
 
 static void
-Sml_DrawClearScreen(sml_renderer *Renderer, sml_vector4 Color)
+Sml_DrawClearScreen(sml_vector4 Color)
 {
     sml_command_header Header = {};
     Header.Type = SmlCommand_Clear;
@@ -206,12 +206,12 @@ Sml_DrawClearScreen(sml_renderer *Renderer, sml_vector4 Color)
     sml_draw_command_clear Payload = {};
     Payload.Color = Color;
 
-    Sml_PushCommand(Renderer, &Header, sizeof(sml_command_header));
-    Sml_PushCommand(Renderer, &Payload, Header.Size);
+    Sml_PushCommand(&Header, sizeof(sml_command_header));
+    Sml_PushCommand(&Payload, Header.Size);
 }
 
 static void
-Sml_DrawInstance(sml_renderer *Renderer, sml_instance Instance)
+Sml_DrawInstance(sml_instance Instance)
 {
     sml_command_header Header = {};
     Header.Type = SmlCommand_DrawInstance;
@@ -220,12 +220,12 @@ Sml_DrawInstance(sml_renderer *Renderer, sml_instance Instance)
     sml_draw_command_instance Payload = {};
     Payload.Instance = Instance;
 
-    Sml_PushCommand(Renderer, &Header, sizeof(sml_command_header));
-    Sml_PushCommand(Renderer, &Payload, Header.Size);
+    Sml_PushCommand(&Header, sizeof(sml_command_header));
+    Sml_PushCommand(&Payload, Header.Size);
 }
 
 static void
-Sml_DrawInstanced(sml_renderer *Renderer, sml_instanced Instanced)
+Sml_DrawInstanced(sml_instanced Instanced)
 {
     sml_command_header Header = {};
     Header.Type = SmlCommand_DrawInstanced;
@@ -234,6 +234,6 @@ Sml_DrawInstanced(sml_renderer *Renderer, sml_instanced Instanced)
     sml_draw_command_instanced Payload = {};
     Payload.Instanced = Instanced;
 
-    Sml_PushCommand(Renderer, &Header, sizeof(sml_command_header));
-    Sml_PushCommand(Renderer, &Payload, Header.Size);
+    Sml_PushCommand(&Header, sizeof(sml_command_header));
+    Sml_PushCommand(&Payload, Header.Size);
 }

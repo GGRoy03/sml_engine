@@ -251,7 +251,7 @@ SmlDx11_CreateInputLayout(ID3DBlob* VertexBlob, UINT* OutStride)
 // ===================================
 
 static void
-SmlDx11_CreateMaterial(sml_setup_command_material* Payload, sml_renderer *Renderer)
+SmlDx11_CreateMaterial(sml_setup_command_material* Payload)
 {
     HRESULT           Status = S_OK;
     sml_dx11_material Material = {};
@@ -347,7 +347,7 @@ SmlDx11_CreateMaterial(sml_setup_command_material* Payload, sml_renderer *Render
 // 1) Does not free the mesh data, flag based?
 
 static void
-SmlDx11_CreateInstance(sml_setup_command_instance *Payload, sml_renderer *Renderer)
+SmlDx11_CreateInstance(sml_setup_command_instance *Payload)
 {
     sml_dx11_instance Instance = {};
     Instance.Data.Material = Payload->Material;
@@ -406,7 +406,7 @@ SmlDx11_CreateInstance(sml_setup_command_instance *Payload, sml_renderer *Render
 // 2) Uses malloc
 
 static void
-SmlDx11_CreateInstanced(sml_setup_command_instanced *Payload, sml_renderer *Renderer)
+SmlDx11_CreateInstanced(sml_setup_command_instanced *Payload)
 {
     sml_dx11_instanced Instanced = {};
 
@@ -479,8 +479,7 @@ SmlDx11_CreateInstanced(sml_setup_command_instanced *Payload, sml_renderer *Rend
 // ===================================
 
 static void
-SmlDx11_UpdateInstanceData(sml_update_command_instance_data *Payload,
-                            sml_renderer *Renderer)
+SmlDx11_UpdateInstanceData(sml_update_command_instance_data *Payload)
 {
     sml_dx11_instance *Instance = (sml_dx11_instance*)
         SmlInt_GetBackendResource(&Renderer->Instances, (sml_u32)Payload->Instance);
@@ -494,8 +493,7 @@ SmlDx11_UpdateInstanceData(sml_update_command_instance_data *Payload,
 }
 
 static void
-SmlDx11_UpdateInstancedData(sml_update_command_instanced_data * Payload,
-                            sml_renderer *Renderer)
+SmlDx11_UpdateInstancedData(sml_update_command_instanced_data *Payload) 
 {
     sml_dx11_instanced *Instanced = (sml_dx11_instanced*)
         SmlInt_GetBackendResource(&Renderer->Instanced, (sml_u32)Payload->Instanced);
@@ -527,7 +525,7 @@ SmlDx11_DrawClearScreen(sml_draw_command_clear *Payload)
 }
 
 static void
-SmlDx11_DrawInstance(sml_draw_command_instance *Payload, sml_renderer *Renderer)
+SmlDx11_DrawInstance(sml_draw_command_instance *Payload)
 {
     sml_dx11_instance *Instance = (sml_dx11_instance*)
         SmlInt_GetBackendResource(&Renderer->Instances, (sml_u32)Payload->Instance);
@@ -566,7 +564,7 @@ SmlDx11_DrawInstance(sml_draw_command_instance *Payload, sml_renderer *Renderer)
 }
 
 static void
-SmlDx11_DrawInstanced(sml_draw_command_instanced *Payload, sml_renderer *Renderer)
+SmlDx11_DrawInstanced(sml_draw_command_instanced *Payload)
 {
     sml_dx11_instanced *Instanced = (sml_dx11_instanced*)
         SmlInt_GetBackendResource(&Renderer->Instanced, (sml_u32)Payload->Instanced);
@@ -607,7 +605,7 @@ SmlDx11_DrawInstanced(sml_draw_command_instanced *Payload, sml_renderer *Rendere
 //
 
 static void
-SmlDx11_Playback(sml_renderer *Renderer)
+SmlDx11_Playback()
 {
     ID3D11DeviceContext *Ctx = Dx11.Context;
 
@@ -648,31 +646,31 @@ SmlDx11_Playback(sml_renderer *Renderer)
         case SmlCommand_Material:
         {
             auto *Payload = (sml_setup_command_material*)(CmdPtr + Offset);
-            SmlDx11_CreateMaterial(Payload, Renderer);
+            SmlDx11_CreateMaterial(Payload);
         } break;
 
         case SmlCommand_Instance:
         {
             auto *Payload = (sml_setup_command_instance*)(CmdPtr + Offset);
-            SmlDx11_CreateInstance(Payload, Renderer);
+            SmlDx11_CreateInstance(Payload);
         } break;
 
         case SmlCommand_Instanced:
         {
             auto *Payload = (sml_setup_command_instanced*)(CmdPtr + Offset);
-            SmlDx11_CreateInstanced(Payload, Renderer);
+            SmlDx11_CreateInstanced(Payload);
         } break;
 
         case SmlCommand_InstanceData:
         {
             auto *Payload = (sml_update_command_instance_data*)(CmdPtr + Offset);
-            SmlDx11_UpdateInstanceData(Payload, Renderer);
+            SmlDx11_UpdateInstanceData(Payload);
         } break;
 
         case SmlCommand_InstancedData:
         {
             auto *Payload = (sml_update_command_instanced_data*)(CmdPtr + Offset);
-            SmlDx11_UpdateInstancedData(Payload, Renderer);
+            SmlDx11_UpdateInstancedData(Payload);
         } break;
 
         case SmlCommand_Clear:
@@ -684,13 +682,13 @@ SmlDx11_Playback(sml_renderer *Renderer)
         case SmlCommand_DrawInstance:
         {
             auto *Payload = (sml_draw_command_instance*)(CmdPtr + Offset);
-            SmlDx11_DrawInstance(Payload, Renderer);
+            SmlDx11_DrawInstance(Payload);
         } break;
 
         case SmlCommand_DrawInstanced:
         {
             auto *Payload = (sml_draw_command_instanced*)(CmdPtr + Offset);
-            SmlDx11_DrawInstanced(Payload, Renderer);
+            SmlDx11_DrawInstanced(Payload);
         } break;
 
         default:

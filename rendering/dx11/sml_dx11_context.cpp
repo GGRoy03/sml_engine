@@ -49,7 +49,7 @@ static sml_dx11_context Dx11;
 // 1) This needs a huge cleanup
 // 2) Uses malloc for the renderer allocation
 
-static sml_renderer*
+static void
 SmlDx11_Initialize(sml_window Window)
 {
     DXGI_SWAP_CHAIN_DESC SDesc = {};
@@ -142,7 +142,7 @@ SmlDx11_Initialize(sml_window Window)
     DX11Renderer->Instanced.Capacity   = 10;
     DX11Renderer->Instanced.SizeOfType = sizeof(sml_dx11_instanced);
 
-    ImGui_ImplDX11_Init(Dx11.Device, Dx11.Context);
+    Renderer = DX11Renderer;
 
-    return DX11Renderer;
+    ImGui_ImplDX11_Init(Dx11.Device, Dx11.Context);
 }
