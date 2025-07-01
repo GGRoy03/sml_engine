@@ -42,10 +42,7 @@ SmlInt_ExtractWalkableList(sml_mesh *Mesh, sml_f32 MaxSlopeDegree)
         sml_vector3 Edge1  = Tri.v2 - Tri.v0;
         sml_vector3 Normal = SmlVec3_Normalize(SmlVec3_VectorProduct(Edge0, Edge1));
 
-        // Check if slope is walkable -> How does that even work? Normal.y == Dot(N, U)
-        // Dot -> How much it points in the same direction as U. Pointing same dir = high value = not-walkable
-        // So why the fuck do we check for >= SlopeThresold??
-
+        // Check if slope is walkable
         if(Normal.y >= SlopeThresold)
         {
             List.Data[List.Count++] = Tri;
@@ -102,6 +99,7 @@ SmlInt_BuildWalkableInstance(sml_walkable_list *List, sml_vector3 Color)
 
     sml_u32      Material = Sml_SetupMaterial(nullptr, 0, SmlShaderFeat_Color, 0);
     sml_instance Instance = Sml_SetupInstance(Mesh, Material);
+
 
     return Instance;
 }

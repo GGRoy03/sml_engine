@@ -258,7 +258,7 @@ SmlDx11_CreateInputLayout(sml_bit_field Features, ID3DBlob* VertexBlob,
     }
     else
     {
-        Elements[2].SemanticName         = "TEXCOORD0";
+        Elements[2].SemanticName         = "TEXCOORD";
         Elements[2].SemanticIndex        = 0;
         Elements[2].Format               = DXGI_FORMAT_R32G32_FLOAT;
         Elements[2].InputSlot            = 0;

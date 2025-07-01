@@ -154,7 +154,7 @@ float4 PSMain(PSInput In) : SV_TARGET
     #ifdef HAS_ALBEDO_MAP
     float3 Color = AlbedoText.Sample(MatSampler, In.TexCoord).rgb * AlbedoFactor;
     #else
-    float3 Color = Color;
+    float3 Color = In.Color;
     #endif
     return float4(Color, 1.0f);
 }

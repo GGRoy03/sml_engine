@@ -123,8 +123,11 @@ Sml_CreateEntity(sml_mesh *Mesh, sml_vector3 Position, sml_u32 Material,
 
     // Debug-specific data init
     sml_walkable_list List    = SmlInt_ExtractWalkableList(E->Mesh, 45.0f);
-    E->Debug.WalkableInstance = SmlInt_BuildWalkableInstance(&List, sml_vector3(1.0f, 0.0f, 0.0f));
-    E->Debug.ShowWalkable     = false;
+    E->Debug.WalkableInstance = 
+        SmlInt_BuildWalkableInstance(&List, sml_vector3(1.0f, 0.0f, 0.0f));
+    E->Debug.ShowWalkable = false;
+
+    Sml_UpdateInstance(E->Position, E->Debug.WalkableInstance);
 
     return Id;
 }
@@ -179,31 +182,37 @@ Sml_DrawEntity(sml_entity_id EntityId)
 static void
 Sml_ShowEntityDebugUI()
 {
-    ImGuiWindowFlags Flags = ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoCollapse;
+    ImGuiWindowFlags Flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse;
 
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(20,20,20,255));
-    ImGui::PushStyleColor(ImGuiCol_Header, IM_COL32(255,140,0,200));
-    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, IM_COL32(255,165,0,255));
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(30,30,30,255));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(40,40,40,255));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(20, 20, 20, 255));
+    ImGui::PushStyleColor(ImGuiCol_Header, IM_COL32(255, 140, 0, 200));
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, IM_COL32(255, 165, 0, 255));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(30, 30, 30, 255));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(40, 40, 40, 255));
 
     ImGui::Begin("Entity Debug", nullptr, Flags);
-    for (sml_u32 i = 0; i < EntityManager.Capacity; ++i)
+
+    for (sml_u32 Index = 0; Index < EntityManager.Capacity; ++Index)
     {
-        sml_entity *E = SmlInt_GetEntityPointer(i);
+        sml_entity* E = SmlInt_GetEntityPointer(Index);
         if (!E->Alive) continue;
 
-        if (E->Debug.ShowWalkable)
-        {
-            Sml_DrawInstance(E->Debug.WalkableInstance);
-        }
-
         char Header[32];
-        sprintf_s(Header, 32, "%s##%u", E->Name, i);
+        sprintf_s(Header, 32, "%s##%u", E->Name, Index);
+
         if (ImGui::CollapsingHeader(Header, ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::Columns(2, "EntityData", false);
             ImGui::SetColumnWidth(0, 80);
+
+            char ToggleID[32];
+            sprintf_s(ToggleID, 32, "Show Walkable##%u", Index);
+            ImGui::Text("ShowWalkable"); ImGui::NextColumn();
+
+            ImGui::PushItemWidth(-1);
+            ImGui::Checkbox(ToggleID, &E->Debug.ShowWalkable);
+            ImGui::PopItemWidth();
+            ImGui::NextColumn();
 
             ImGui::Text("Name");  ImGui::NextColumn();
             ImGui::Text(E->Name); ImGui::NextColumn();
@@ -212,10 +221,11 @@ Sml_ShowEntityDebugUI()
             ImGui::PushItemWidth(-1);
 
             char PosLabel[32];
-            sprintf_s(PosLabel, 32, "##pos%u", i);
+            sprintf_s(PosLabel, 32, "##pos%u", Index);
             if (ImGui::InputFloat3(PosLabel, &E->Position.x))
             {
-                Sml_UpdateEntity(sml_entity_id(i));
+                Sml_UpdateEntity(sml_entity_id(Index));
+                Sml_UpdateInstance(E->Position, E->Debug.WalkableInstance);
             }
 
             ImGui::PopItemWidth();
@@ -223,6 +233,12 @@ Sml_ShowEntityDebugUI()
 
             ImGui::Columns(1);
         }
+
+        if (E->Debug.ShowWalkable)
+        {
+            Sml_DrawInstance(E->Debug.WalkableInstance);
+        }
+
     }
 
     ImGui::End();
