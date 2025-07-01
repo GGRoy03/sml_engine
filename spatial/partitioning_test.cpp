@@ -12,7 +12,8 @@ struct sml_walkable_list
     sml_u32           Count;
 };
 
-// WARN: Uses malloc
+// WARN: 
+// 1) Uses malloc
 
 static sml_walkable_list
 SmlInt_ExtractWalkableList(sml_mesh *Mesh, sml_f32 MaxSlopeDegree)
@@ -26,21 +27,25 @@ SmlInt_ExtractWalkableList(sml_mesh *Mesh, sml_f32 MaxSlopeDegree)
     sml_f32     SlopeThresold = cosf(MaxSlopeDegree * (3.14158265f / 180.0f));
     sml_vertex *VertexData    = (sml_vertex*)Mesh->VertexData;
 
-    for(sml_u32 Index = 0; Index < List.Count; Index++)
+    for(sml_u32 TriIdx = 0; TriIdx < TriCount; TriIdx++)
     {
-        sml_walkable_tri Tri = {};
+        sml_walkable_tri Tri  = {};
+        sml_u32          Base = TriIdx * 3;
 
         // Fetch three vertices from the mesh
-        Tri.v0 = VertexData[Mesh->IndexData[Index + 0]].Position;
-        Tri.v1 = VertexData[Mesh->IndexData[Index + 1]].Position;
-        Tri.v2 = VertexData[Mesh->IndexData[Index + 2]].Position;
+        Tri.v0 = VertexData[Mesh->IndexData[Base + 0]].Position;
+        Tri.v1 = VertexData[Mesh->IndexData[Base + 1]].Position;
+        Tri.v2 = VertexData[Mesh->IndexData[Base + 2]].Position;
 
         // Compute the normal from the edge vectors
         sml_vector3 Edge0  = Tri.v1 - Tri.v0;
         sml_vector3 Edge1  = Tri.v2 - Tri.v0;
         sml_vector3 Normal = SmlVec3_Normalize(SmlVec3_VectorProduct(Edge0, Edge1));
 
-        // Check if slope is walkable
+        // Check if slope is walkable -> How does that even work? Normal.y == Dot(N, U)
+        // Dot -> How much it points in the same direction as U. Pointing same dir = high value = not-walkable
+        // So why the fuck do we check for >= SlopeThresold??
+
         if(Normal.y >= SlopeThresold)
         {
             List.Data[List.Count++] = Tri;
@@ -57,7 +62,7 @@ SmlInt_ExtractWalkableList(sml_mesh *Mesh, sml_f32 MaxSlopeDegree)
 // 3) Not really clear that it free the walkable list.
 
 static sml_instance
-SmlInt_BuildWalkableInstance(sml_walkable_list *List)
+SmlInt_BuildWalkableInstance(sml_walkable_list *List, sml_vector3 Color)
 {
     sml_mesh *Mesh = (sml_mesh*)malloc(sizeof(sml_mesh));
 
@@ -83,6 +88,10 @@ SmlInt_BuildWalkableInstance(sml_walkable_list *List)
         V[Base + 1].Normal = T->Normal;
         V[Base + 2].Normal = T->Normal;
 
+        V[Base + 0].Color = Color;
+        V[Base + 1].Color = Color;
+        V[Base + 2].Color = Color;
+
         I[Base + 0] = Base + 0;
         I[Base + 1] = Base + 1;
         I[Base + 2] = Base + 2;
@@ -91,7 +100,8 @@ SmlInt_BuildWalkableInstance(sml_walkable_list *List)
     free(List->Data);
     List->Data = nullptr;
 
-    sml_instance Instance = Sml_SetupInstance(Mesh, 0);
+    sml_u32      Material = Sml_SetupMaterial(nullptr, 0, SmlShaderFeat_Color, 0);
+    sml_instance Instance = Sml_SetupInstance(Mesh, Material);
 
     return Instance;
 }

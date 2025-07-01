@@ -123,7 +123,7 @@ Sml_CreateEntity(sml_mesh *Mesh, sml_vector3 Position, sml_u32 Material,
 
     // Debug-specific data init
     sml_walkable_list List    = SmlInt_ExtractWalkableList(E->Mesh, 45.0f);
-    E->Debug.WalkableInstance = SmlInt_BuildWalkableInstance(&List);
+    E->Debug.WalkableInstance = SmlInt_BuildWalkableInstance(&List, sml_vector3(1.0f, 0.0f, 0.0f));
     E->Debug.ShowWalkable     = false;
 
     return Id;
@@ -192,6 +192,11 @@ Sml_ShowEntityDebugUI()
     {
         sml_entity *E = SmlInt_GetEntityPointer(i);
         if (!E->Alive) continue;
+
+        if (E->Debug.ShowWalkable)
+        {
+            Sml_DrawInstance(E->Debug.WalkableInstance);
+        }
 
         char Header[32];
         sprintf_s(Header, 32, "%s##%u", E->Name, i);
