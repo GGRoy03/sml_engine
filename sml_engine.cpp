@@ -31,11 +31,11 @@ enum class sml_instanced : sml_u32 {};
 #include "math/vector.cpp"
 #include "math/matrix.cpp"
 
-// Spatial
-#include "spatial/entity_test.cpp"
-
 // Rendering
 #include "platform/sml_platform.cpp"
 #include "rendering/sml_rendering.cpp"
+
+// Spatial
+#include "spatial/entity_test.cpp"
 
 #pragma warning(pop)
