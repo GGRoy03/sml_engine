@@ -2,14 +2,15 @@
 // Internal Functions.
 // ==========================================
 
-extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+extern IMGUI_IMPL_API LRESULT
+ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 static LRESULT CALLBACK
 SmlWin32_WindowProc(HWND Handle, UINT Message, WPARAM WParam, LPARAM LParam)
 {
     if (ImGui_ImplWin32_WndProcHandler(Handle, Message, WParam, LParam))
     {
-        return TRUE;
+        return 0;
     }
 
     switch(Message)
@@ -60,6 +61,9 @@ SmlWin32_ProcessMessages(sml_game_controller_input *Keyboard)
                 SmlWin32_ProcessKeyboardMessage(&Keyboard->Buttons[VKCode], IsDown);
             }
 
+            TranslateMessage(&Message);
+            DispatchMessage(&Message);
+
         } break;
 
         case WM_QUIT:
@@ -70,7 +74,7 @@ SmlWin32_ProcessMessages(sml_game_controller_input *Keyboard)
         default:
         {
             TranslateMessage(&Message);
-            DispatchMessageA(&Message);
+            DispatchMessage(&Message);
         } break;
 
         }
@@ -151,8 +155,8 @@ Sml_CreateWindow(sml_i32 Width, sml_i32 Height, const char *Title)
 bool 
 Sml_UpdateWindow(sml_window *Window, sml_game_controller_input *Inputs)
 {
-    bool WindowClosed = SmlWin32_ProcessMessages(Inputs);
-    if(!WindowClosed) return false;
+    bool WindowIsValid = SmlWin32_ProcessMessages(Inputs);
+    if(!WindowIsValid) return false;
 
     SmlWin32_GetClientSize((HWND)Window->Handle, &Window->Width, &Window->Height);
 
