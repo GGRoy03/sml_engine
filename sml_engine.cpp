@@ -27,6 +27,8 @@ enum class sml_instanced : sml_u32 {};
 #pragma warning(push)
 #pragma warning(disable: 4505 4996) // Unreferenced functions | Unsafe functions
 
+// Memory
+#include "memory/sml_stack_memory.cpp"
 
 // Math
 #include "math/vector.cpp"
