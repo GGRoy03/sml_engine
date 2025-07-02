@@ -89,7 +89,7 @@ SmlInt_PushMemory(size_t Size)
 }
 
 static void
-SmlInt_FreeMemory(sml_memory_block Block)
+SmlInt_FreeMemory(sml_memory_block *Block)
 {
     if(SmlMemory.FreeCount == SmlFreeListCount)
     {
@@ -97,5 +97,9 @@ SmlInt_FreeMemory(sml_memory_block Block)
         return;
     }
 
-    SmlMemory.FreeList[SmlMemory.FreeCount++] = Block;
+    Block->Data = nullptr;
+    Block->Size = 0;
+    Block->At   = 0;
+
+    SmlMemory.FreeList[SmlMemory.FreeCount++] = *Block;
 }

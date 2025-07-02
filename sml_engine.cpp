@@ -30,6 +30,9 @@ enum class sml_instanced : sml_u32 {};
 // Memory
 #include "memory/sml_stack_memory.cpp"
 
+// Data structures
+#include "data_structures/sml_dynamic_array.cpp"
+
 // Math
 #include "math/vector.cpp"
 #include "math/matrix.cpp"
