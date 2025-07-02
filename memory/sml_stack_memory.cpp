@@ -2,14 +2,25 @@
 // Type Definitions
 // ===================================
 
+struct sml_memory_block
+{
+    void  *Data;
+    size_t At;
+    size_t Size;
+};
+
 struct sml_memory
 {
     void  *PushBase;
     size_t PushSize;
     size_t PushCapacity;
+
+    sml_memory_block *FreeList;
+    sml_u32           FreeCount;
 };
 
-static constexpr size_t SmlDefaultMemorySize = Sml_Kilobytes(50);
+static constexpr size_t  SmlMemorySize    = Sml_Kilobytes(50);
+static constexpr sml_u32 SmlFreeListCount = 10;
 
 // ===================================
 // Global Variables
@@ -28,26 +39,63 @@ SmlInt_BeginTemporaryRegion()
 }
 
 static void
-SmlInt_EndTemporaryRegion( size_t Marker)
+SmlInt_EndTemporaryRegion(size_t Marker)
 {
     if(SmlMemory.PushSize + Marker > SmlMemory.PushCapacity)
     {
-        Sml_Assert("Memory overflow from temporary region.");
+        Sml_Assert(!"Memory overflow from temporary region.");
     }
 }
 
-static void*
+static sml_memory_block
 SmlInt_PushMemory(size_t Size)
 {
     if(!SmlMemory.PushBase)
     {
-        SmlMemory.PushBase     = malloc(SmlDefaultMemorySize);
-        SmlMemory.PushCapacity = SmlDefaultMemorySize;
+        SmlMemory.PushBase     = malloc(SmlMemorySize);
+        SmlMemory.PushCapacity = SmlMemorySize;
         SmlMemory.PushSize     = 0;
+        SmlMemory.FreeCount    = 0;
+        SmlMemory.FreeList     = 
+            (sml_memory_block*)malloc(SmlFreeListCount * sizeof(sml_memory_block));
     }
 
-    void *Block         = (sml_u8*)SmlMemory.PushBase + SmlMemory.PushSize;
+    for(sml_u32 FreeIndex = SmlMemory.FreeCount = 1; FreeIndex > 0; FreeIndex--)
+    {
+        sml_memory_block *FreeBlock = SmlMemory.FreeList + FreeIndex;
+
+        if(FreeBlock->Size >= Size)
+        {
+            sml_memory_block Block = {};
+            Block.Data = (sml_u8*)SmlMemory.PushBase + FreeBlock->At;
+            Block.Size = Size;
+            Block.At   = SmlMemory.PushSize;
+
+            SmlMemory.PushSize  += Size;
+            SmlMemory.FreeCount -= 1;
+
+            return Block;
+        }
+    }
+
+    sml_memory_block Block = {};
+    Block.Data = (sml_u8*)SmlMemory.PushBase + SmlMemory.PushSize;
+    Block.Size = Size;
+    Block.At   = SmlMemory.PushSize;
+
     SmlMemory.PushSize += Size;
 
     return Block;
+}
+
+static void
+SmlInt_FreeMemory(sml_memory_block Block)
+{
+    if(SmlMemory.FreeCount == SmlFreeListCount)
+    {
+        Sml_Assert(!"Free list is already full");
+        return;
+    }
+
+    SmlMemory.FreeList[SmlMemory.FreeCount++] = Block;
 }
