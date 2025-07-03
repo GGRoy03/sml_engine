@@ -60,6 +60,11 @@ SmlInt_PushMemory(size_t Size)
             (sml_memory_block*)malloc(SmlFreeListCount * sizeof(sml_memory_block));
     }
 
+    if(SmlMemory.PushSize + Size > SmlMemory.PushCapacity)
+    {
+        Sml_Assert(!"Out of memory");
+    }
+
     for(sml_u32 FreeIndex = SmlMemory.FreeCount = 1; FreeIndex > 0; FreeIndex--)
     {
         sml_memory_block *FreeBlock = SmlMemory.FreeList + FreeIndex;
@@ -102,4 +107,14 @@ SmlInt_FreeMemory(sml_memory_block *Block)
     Block->At   = 0;
 
     SmlMemory.FreeList[SmlMemory.FreeCount++] = *Block;
+}
+
+static sml_memory_block
+SmlInt_ReallocateMemory(sml_memory_block *OldBlock, sml_u32 Growth)
+{
+    sml_memory_block NewBlock = SmlInt_PushMemory(OldBlock->Size * Growth);
+    memcpy(NewBlock.Data, OldBlock->Data, OldBlock->Size);
+    SmlInt_FreeMemory(OldBlock);
+
+    return NewBlock;
 }

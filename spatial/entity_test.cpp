@@ -128,8 +128,7 @@ Sml_CreateEntity(sml_mesh *Mesh, sml_vector3 Position, sml_u32 Material,
     E->Debug.ShowWalkable = false;
 
     // Try building our co-planar clusters
-    SmlInt_BuildTriangleAdjency(&List);
-    SmlInt_ClusterCoplanarPatches(&List);
+
 
     Sml_UpdateInstance(E->Position, E->Debug.WalkableInstance);
 

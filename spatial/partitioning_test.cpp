@@ -96,7 +96,7 @@ SmlInt_ExtractWalkableList(sml_mesh *Mesh, sml_f32 MaxSlopeDegree)
 }
 
 // WARN: 
-// 1) Does not produce optimized indexed meshes. (Store indices in list)
+// 1) Does not produce optimized indexed meshes.
 // 2) Uses malloc/free
 // 3) This should not be used
 
@@ -178,7 +178,7 @@ SmlInt_BuildTriangleAdjency(sml_walkable_list *List)
     List->EdgeToTri = EdgeToTri;
 }
 
-struct sml_adjacent_triangles
+struct sml_adjacent_tris
 {
     sml_u32 V[3];
     sml_u32 Count;
@@ -191,88 +191,76 @@ struct sml_adjacent_triangles
 static void
 SmlInt_ClusterCoplanarPatches(sml_walkable_list *List)
 {
-    sml_adjacent_triangles *AdjacentTris = 
-        (sml_adjacent_triangles*)calloc(List->Count, sizeof(sml_adjacent_triangles));
+    const sml_f32 MaxPlanarAngle = 10.0f;
+    const sml_f32 CosThresold    = (MaxPlanarAngle * (3.14159265f/180.0f));
 
-    for(sml_u32 TriIndex = 0; TriIndex < List->Count; TriIndex++)
+    sml_dynamic_array<sml_adjacent_tris> Adjacents(List->Count);
+
+    for (sml_u32 TriIdx = 0; TriIdx < List->Count; ++TriIdx)
     {
-        sml_walkable_tri *Tri = List->Data + TriIndex;
+        auto *Tri = List->Data + TriIdx;
+        auto *Adj = Adjacents.PushNext();
 
-        for (sml_u32 EdgeIndex = 0; EdgeIndex < 3; EdgeIndex++)
+        if (!Adj) return;
+
+        for (sml_u32 Edge = 0; Edge < 3; ++Edge)
         {
-            // Build the key
-            sml_edge_key Key;
-            Key.EdgeA = Tri->Indices[EdgeIndex];
-            Key.EdgeB = Tri->Indices[(EdgeIndex + 1) % 3];
+            sml_u32 A = Tri->Indices[Edge];
+            sml_u32 B = Tri->Indices[(Edge + 1) % 3];
 
-            // Sort to keep it undirected
-            if (Key.EdgeA > Key.EdgeB)
+            if (A > B)
             {
-                sml_u32 Temp = Key.EdgeA;
-                Key.EdgeA = Key.EdgeB;
-                Key.EdgeB = Temp;
+                sml_u32 Temp = A;
+                A = B;
+                B = Temp;
             }
 
-            auto& Vector = List->EdgeToTri[Key];
+            sml_edge_key Key { A, B };
 
-            if (Vector.size() == 2) 
+            auto &Shared = List->EdgeToTri[Key];
+            if (Shared.size() == 2)
             {
-                if (Vector[0] == TriIndex)
-                {
-                    AdjacentTris[TriIndex].V[AdjacentTris[TriIndex].Count++] = Vector[1];
-                }
-                else
-                {
-                    AdjacentTris[TriIndex].V[AdjacentTris[TriIndex].Count++] = Vector[0];
-                }
+                Adj->V[Adj->Count++] = (Shared[0] == TriIdx ? Shared[1] : Shared[0]);
             }
         }
     }
 
-    const sml_f32 MaxPlanarAngle = 10.0f;
-    const sml_f32 CosThresold    = (MaxPlanarAngle * (3.14159265f/180.0f));
-
-    bool *Visited = (bool*)calloc(List->Count, sizeof(bool));
-
-    std::vector<std::vector<sml_u32>> Clusters;
+    sml_dynamic_array<bool>                       Visited(List->Count);
+    sml_dynamic_array<sml_dynamic_array<sml_u32>> Clusters(0);
 
     for(sml_u32 TriIndex = 0; TriIndex < List->Count; TriIndex++)
     {
-        if(Visited[TriIndex]) continue;
+        if(Visited.Values[TriIndex]) continue;
 
-        std::vector<sml_u32> Cluster;
+        auto *Cluster = Clusters.PushNext();
+
         std::stack<sml_u32>  Stack;
 
         Stack.push(TriIndex);
-        Visited[TriIndex] = true;
+        Visited.Values[TriIndex] = true;
 
         while(!Stack.empty())
         {
             sml_u32 Current = Stack.top();
             Stack.pop();
 
-            Cluster.push_back(Current);
+            Cluster->Push(Current);
 
-            auto    CurrentNormal = List->Data[Current].Normal;
-            sml_u32 NCount        = AdjacentTris[Current].Count;
+            auto *Adj           = Adjacents.Values + Current;
+            auto  CurrentNormal = List->Data[Current].Normal;
 
-            for(sml_u32 NeighborIndex = 0; NeighborIndex < NCount; NeighborIndex++)
+            for(sml_u32 NIndex = 0; NIndex < Adj->Count; NIndex++)
             {
-                // Check if we have already visited the adjacent triangle.
-                sml_u32 N = AdjacentTris[Current].V[NeighborIndex];
-                if(Visited[N]) continue;
+                sml_u32 N = Adj->V[NIndex];
+                if(Visited.Values[N]) continue;
 
-                // Get the normal and check if it respects our coplanar conditions
                 auto &AdjacentNormal = List->Data[N].Normal;
                 if(SmlVec3_Dot(CurrentNormal, AdjacentNormal) >= CosThresold)
                 {
-                    Visited[N] = true;
+                    Visited.Values[N] = true;
                     Stack.push(N);
                 }
             }
         }
     }
-
-    free(Visited);
-    free(AdjacentTris);
 }

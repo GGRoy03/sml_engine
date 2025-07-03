@@ -12,7 +12,7 @@ struct sml_dynamic_array
     sml_memory_block Heap;
 
     sml_dynamic_array(){};
-    sml_dynamic_array(sml_u32 InitialCount)
+    sml_dynamic_array(sml_u32 InitialCount, bool ZeroInit = true)
     {
         if(InitialCount == 0) InitialCount = 8;
 
@@ -20,6 +20,11 @@ struct sml_dynamic_array
         this->Values   = (T*)this->Heap.Data;
         this->Count    = 0;
         this->Capacity = InitialCount;
+
+        if(ZeroInit)
+        {
+            memset(this->Heap.Data, 0, this->Capacity * sizeof(T));
+        }
     }
 
     sml_dynamic_array& operator=(const sml_dynamic_array&) = delete;
@@ -31,16 +36,26 @@ struct sml_dynamic_array
         if(this->Count == this->Capacity)
         {
             this->Capacity *= 2;
-
-            sml_memory_block NewBlock = SmlInt_PushMemory(this->Capacity * sizeof(T));
-
-            memcpy(NewBlock.Data, this->Values, this->Count * sizeof(T));
-            SmlInt_FreeMemory(&this->Heap);
-
-            this->Heap = NewBlock;
+            this->Heap      = SmlInt_ReallocateMemory(&this->Heap, 2);
         }
 
         this->Values[Count++] = Value;
+    }
+
+    T* PushNext()
+    {
+        Sml_Assert(this->Values);
+
+        if(this->Count == this->Capacity)
+        {
+            this->Capacity *= 2;
+            this->Heap     = SmlInt_ReallocateMemory(&this->Heap, 2);
+        }
+
+        T *Ptr = this->Values + this->Count;
+        this->Count++;
+
+        return Ptr;
     }
 
     void Free()
