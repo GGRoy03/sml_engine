@@ -58,8 +58,21 @@ struct sml_dynamic_array
         return Ptr;
     }
 
+    T Pop()
+    {
+        Sml_Assert(this->Values);
+        Sml_Assert(this->Count > 0);
+
+        T Value      = this->Values[this->Count - 1];
+        this->Count -= 1;
+
+        return Value;
+    }
+
     void Free()
     {
+        Sml_Assert(this->Values);
+
         SmlInt_FreeMemory(&this->Heap);
 
         this->Values   = nullptr;

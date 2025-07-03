@@ -18,6 +18,12 @@ struct sml_edge_key
     sml_u32 EdgeB;
 };
 
+struct sml_adjacent_tris
+{
+    sml_u32 V[3];
+    sml_u32 Count;
+};
+
 struct sml_edge_key_hash
 {
     size_t operator()(sml_edge_key const &Key) const noexcept
@@ -157,11 +163,9 @@ SmlInt_BuildTriangleAdjency(sml_walkable_list *List)
         {
             sml_edge_key Key;
 
-            // Extract the edges
             Key.EdgeA = Tri->Indices[EdgeIndex];
             Key.EdgeB = Tri->Indices[(EdgeIndex + 1) % 3];
 
-            // Sort to keep it undirected
             if(Key.EdgeA > Key.EdgeB)
             {
                 sml_u32 Temp = Key.EdgeA;
@@ -169,7 +173,6 @@ SmlInt_BuildTriangleAdjency(sml_walkable_list *List)
                 Key.EdgeB    = Temp;
             }
 
-            // Insert
             auto &Vector = EdgeToTri[Key];
             Vector.push_back(TriIndex);
         }
@@ -177,12 +180,6 @@ SmlInt_BuildTriangleAdjency(sml_walkable_list *List)
 
     List->EdgeToTri = EdgeToTri;
 }
-
-struct sml_adjacent_tris
-{
-    sml_u32 V[3];
-    sml_u32 Count;
-};
 
 // WARN:
 // 1) Uses malloc/free
@@ -232,17 +229,15 @@ SmlInt_ClusterCoplanarPatches(sml_walkable_list *List)
     {
         if(Visited.Values[TriIndex]) continue;
 
+        auto  Stack   = sml_dynamic_array<sml_u32>(0);
         auto *Cluster = Clusters.PushNext();
 
-        std::stack<sml_u32>  Stack;
-
-        Stack.push(TriIndex);
+        Stack.Push(TriIndex);
         Visited.Values[TriIndex] = true;
 
-        while(!Stack.empty())
+        while(Stack.Count > 0)
         {
-            sml_u32 Current = Stack.top();
-            Stack.pop();
+            sml_u32 Current = Stack.Pop();
 
             Cluster->Push(Current);
 
@@ -258,9 +253,10 @@ SmlInt_ClusterCoplanarPatches(sml_walkable_list *List)
                 if(SmlVec3_Dot(CurrentNormal, AdjacentNormal) >= CosThresold)
                 {
                     Visited.Values[N] = true;
-                    Stack.push(N);
+                    Stack.Push(N);
                 }
             }
         }
     }
+
 }
