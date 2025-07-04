@@ -26,115 +26,63 @@ struct sml_adjacent_tris
 
 struct sml_walkable_list
 {
-    sml_walkable_tri *Data;
-    sml_u32           Count;
+    sml_dynamic_array<sml_walkable_tri> 
+    Walkable;
 
-    sml_hashmap<sml_edge_key, sml_dynamic_array<sml_u32>> EdgeToTri;
+    sml_hashmap<sml_edge_key, sml_dynamic_array<sml_u32>> 
+    EdgeToTri;
 };
-
-// WARN: 
-// 1) Uses malloc
 
 static sml_walkable_list
 SmlInt_ExtractWalkableList(sml_mesh *Mesh, sml_f32 MaxSlopeDegree)
 {
     sml_walkable_list List = {};
 
-    sml_u32 TriCount = sml_u32(Mesh->IndexDataSize / sizeof(sml_u32)) / 3;
-    List.Data        = (sml_walkable_tri*)malloc(TriCount * sizeof(sml_walkable_tri));
-    List.Count       = 0;
+    sml_u32 IdxCnt = sml_u32(Mesh->IndexDataSize / sizeof(sml_u32));
+    sml_u32 TriCnt = IdxCnt / 3;
+
+    List.Walkable = sml_dynamic_array<sml_walkable_tri>(TriCnt);
 
     sml_f32     SlopeThresold = cosf(MaxSlopeDegree * (3.14158265f / 180.0f));
     sml_vertex *VertexData    = (sml_vertex*)Mesh->VertexData;
 
-    for(sml_u32 TriIdx = 0; TriIdx < TriCount; TriIdx++)
+    for(sml_u32 TriIdx = 0; TriIdx < TriCnt; TriIdx++)
     {
         sml_walkable_tri Tri  = {};
         sml_u32          Base = TriIdx * 3;
 
-        // Fetch the indices
         Tri.Indices[0] = Mesh->IndexData[Base + 0];
         Tri.Indices[1] = Mesh->IndexData[Base + 1];
         Tri.Indices[2] = Mesh->IndexData[Base + 2];
 
-        // Fetch the vertices
         Tri.v0 = VertexData[Tri.Indices[0]].Position;
         Tri.v1 = VertexData[Tri.Indices[1]].Position;
         Tri.v2 = VertexData[Tri.Indices[2]].Position;
 
-        // Compute the normal from the edge vectors
         sml_vector3 Edge0  = Tri.v1 - Tri.v0;
         sml_vector3 Edge1  = Tri.v2 - Tri.v0;
         sml_vector3 Normal = SmlVec3_Normalize(SmlVec3_VectorProduct(Edge0, Edge1));
 
         Tri.Normal = Normal;
 
-        // Check if slope is walkable
         if(Normal.y >= SlopeThresold)
         {
-            List.Data[List.Count++] = Tri;
+            List.Walkable.Push(Tri);
         }
     }
 
+    sml_u32 EdgeCnt = List.Walkable.Count * 3;
+    List.EdgeToTri  = sml_hashmap<sml_edge_key, sml_dynamic_array<sml_u32>>(EdgeCnt);
+
     return List;
-}
-
-// WARN: 
-// 1) Does not produce optimized indexed meshes.
-// 2) Uses malloc/free
-// 3) This should not be used
-
-static sml_instance
-SmlInt_BuildWalkableInstance(sml_walkable_list *List, sml_vector3 Color)
-{
-    sml_mesh *Mesh = (sml_mesh*)malloc(sizeof(sml_mesh));
-
-    Mesh->VertexDataSize = List->Count * 3 * sizeof(sml_vertex_color);
-    Mesh->IndexDataSize  = List->Count * 3 * sizeof(sml_u32);
-
-    Mesh->VertexData = malloc(Mesh->VertexDataSize);
-    Mesh->IndexData  = (sml_u32*)malloc(Mesh->IndexDataSize);
-
-    sml_vertex_color *V = (sml_vertex_color*)Mesh->VertexData;
-    sml_u32          *I = (sml_u32*)Mesh->IndexData;
-
-    for (sml_u32 Tri = 0; Tri < List->Count; ++Tri)
-    {
-        sml_walkable_tri *T    = &List->Data[Tri];
-        sml_u32           Base = Tri * 3;
-
-        V[Base + 0].Position = T->v0;
-        V[Base + 1].Position = T->v1;
-        V[Base + 2].Position = T->v2;
-
-        V[Base + 0].Normal = T->Normal;
-        V[Base + 1].Normal = T->Normal;
-        V[Base + 2].Normal = T->Normal;
-
-        V[Base + 0].Color = Color;
-        V[Base + 1].Color = Color;
-        V[Base + 2].Color = Color;
-
-        I[Base + 0] = Base + 0;
-        I[Base + 1] = Base + 1;
-        I[Base + 2] = Base + 2;
-    }
-
-    sml_u32      Material = Sml_SetupMaterial(nullptr, 0, SmlShaderFeat_Color, 0);
-    sml_instance Instance = Sml_SetupInstance(Mesh, Material);
-
-    return Instance;
 }
 
 static void
 SmlInt_BuildTriangleAdjency(sml_walkable_list *List)
 {
-    sml_u32 EdgeCnt = List->Count * 3;
-    List->EdgeToTri = sml_hashmap<sml_edge_key, sml_dynamic_array<sml_u32>>(EdgeCnt);
-
-    for(sml_u32 TriIndex = 0; TriIndex < List->Count; TriIndex++)
+    for(sml_u32 TriIndex = 0; TriIndex < List->Walkable.Count; TriIndex++)
     {
-        sml_walkable_tri *Tri = List->Data + TriIndex;
+        sml_walkable_tri *Tri = List->Walkable.Values + TriIndex;
 
         for(sml_u32 EdgeIndex = 0; EdgeIndex < 3; EdgeIndex++)
         {
@@ -162,11 +110,11 @@ SmlInt_ClusterCoplanarPatches(sml_walkable_list *List)
     const sml_f32 MaxPlanarAngle = 10.0f;
     const sml_f32 CosThresold    = (MaxPlanarAngle * (3.14159265f/180.0f));
 
-    sml_dynamic_array<sml_adjacent_tris> Adjacents(List->Count);
+    sml_dynamic_array<sml_adjacent_tris> Adjacents(List->Walkable.Count);
 
-    for (sml_u32 TriIdx = 0; TriIdx < List->Count; ++TriIdx)
+    for (sml_u32 TriIdx = 0; TriIdx < List->Walkable.Count; ++TriIdx)
     {
-        auto *Tri = List->Data + TriIdx;
+        auto *Tri = List->Walkable.Values + TriIdx;
         auto *Adj = Adjacents.PushNext();
 
         if (!Adj) return;
@@ -195,10 +143,13 @@ SmlInt_ClusterCoplanarPatches(sml_walkable_list *List)
         }
     }
 
-    sml_dynamic_array<bool>                       Visited(List->Count);
-    sml_dynamic_array<sml_dynamic_array<sml_u32>> Clusters(0);
+    sml_dynamic_array<bool> 
+    Visited(List->Walkable.Count);
 
-    for(sml_u32 TriIndex = 0; TriIndex < List->Count; TriIndex++)
+    sml_dynamic_array<sml_dynamic_array<sml_u32>>
+    Clusters(0);
+
+    for(sml_u32 TriIndex = 0; TriIndex < List->Walkable.Count; TriIndex++)
     {
         if(Visited.Values[TriIndex]) continue;
 
@@ -215,14 +166,14 @@ SmlInt_ClusterCoplanarPatches(sml_walkable_list *List)
             Cluster->Push(Current);
 
             auto *Adj           = Adjacents.Values + Current;
-            auto  CurrentNormal = List->Data[Current].Normal;
+            auto  CurrentNormal = List->Walkable[Current].Normal;
 
             for(sml_u32 NIndex = 0; NIndex < Adj->Count; NIndex++)
             {
                 sml_u32 N = Adj->V[NIndex];
                 if(Visited.Values[N]) continue;
 
-                auto &AdjacentNormal = List->Data[N].Normal;
+                auto AdjacentNormal = List->Walkable[N].Normal;
                 if(SmlVec3_Dot(CurrentNormal, AdjacentNormal) >= CosThresold)
                 {
                     Visited.Values[N] = true;

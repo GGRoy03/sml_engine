@@ -43,7 +43,7 @@ struct sml_hashmap_entry
 // it's clear what's happening (the first error), but it's a complete wall of text.
 // I'd much rather have static assertions, which is possible, but it also adds
 // really ugly code? I'll go with static assertions for now with SFINAE not even
-// 100% sure how it works
+// 100% sure how it works.
 
 template<typename K, typename V>
 struct sml_hashmap
