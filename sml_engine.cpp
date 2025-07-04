@@ -2,9 +2,9 @@
 #include <stdbool.h>
 #include <intrin.h>
 
-typedef uint8_t     sml_u8;
-typedef uint32_t    sml_u32;
-typedef uint64_t    sml_u64;
+typedef uint8_t  sml_u8;
+typedef uint32_t sml_u32;
+typedef uint64_t sml_u64;
 
 typedef int sml_i32;
 

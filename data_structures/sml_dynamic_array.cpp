@@ -27,8 +27,6 @@ struct sml_dynamic_array
         }
     }
 
-    sml_dynamic_array& operator=(const sml_dynamic_array&) = delete;
-
     void Push(T Value)
     {
         Sml_Assert(this->Values);

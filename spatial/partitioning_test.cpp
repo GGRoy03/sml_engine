@@ -1,10 +1,5 @@
 #include "math.h" // cosf
 
-// NOTE: Long term we want to replace these with our own.
-#include <unordered_map>
-#include <vector>
-#include <stack>
-
 struct sml_walkable_tri
 {
     sml_vector3 v0, v1, v2;
@@ -16,6 +11,11 @@ struct sml_edge_key
 {
     sml_u32 EdgeA;
     sml_u32 EdgeB;
+
+    bool operator==(const sml_edge_key& O) const
+    {
+        return EdgeA == O.EdgeA && EdgeB == O.EdgeB;
+    }
 };
 
 struct sml_adjacent_tris
@@ -24,33 +24,12 @@ struct sml_adjacent_tris
     sml_u32 Count;
 };
 
-struct sml_edge_key_hash
-{
-    size_t operator()(sml_edge_key const &Key) const noexcept
-    {
-        return (size_t)Key.EdgeA * 73856093u ^ (size_t)Key.EdgeB * 19349663u;
-    }
-};
-
-struct sml_edge_key_equal
-{
-    bool operator()(sml_edge_key const &LeftHSKey,
-                    sml_edge_key const &RightHSKey) const noexcept
-    {
-        return LeftHSKey.EdgeA == RightHSKey.EdgeA &&
-               LeftHSKey.EdgeB == RightHSKey.EdgeB;
-    }
-};
-
 struct sml_walkable_list
 {
     sml_walkable_tri *Data;
     sml_u32           Count;
 
-    std::unordered_map<sml_edge_key,
-                       std::vector<sml_u32>,
-                       sml_edge_key_hash,
-                       sml_edge_key_equal> EdgeToTri;
+    sml_hashmap<sml_edge_key, sml_dynamic_array<sml_u32>> EdgeToTri;
 };
 
 // WARN: 
@@ -95,7 +74,6 @@ SmlInt_ExtractWalkableList(sml_mesh *Mesh, sml_f32 MaxSlopeDegree)
         {
             List.Data[List.Count++] = Tri;
         }
-
     }
 
     return List;
@@ -151,9 +129,8 @@ SmlInt_BuildWalkableInstance(sml_walkable_list *List, sml_vector3 Color)
 static void
 SmlInt_BuildTriangleAdjency(sml_walkable_list *List)
 {
-    std::unordered_map<sml_edge_key, std::vector<sml_u32>,
-                       sml_edge_key_hash, sml_edge_key_equal> EdgeToTri;
-    EdgeToTri.reserve(List->Count * 3);
+    sml_u32 EdgeCnt = List->Count * 3;
+    List->EdgeToTri = sml_hashmap<sml_edge_key, sml_dynamic_array<sml_u32>>(EdgeCnt);
 
     for(sml_u32 TriIndex = 0; TriIndex < List->Count; TriIndex++)
     {
@@ -173,17 +150,11 @@ SmlInt_BuildTriangleAdjency(sml_walkable_list *List)
                 Key.EdgeB    = Temp;
             }
 
-            auto &Vector = EdgeToTri[Key];
-            Vector.push_back(TriIndex);
+            auto Array = List->EdgeToTri.Get(Key);
+            Array.Push(TriIndex);
         }
     }
-
-    List->EdgeToTri = EdgeToTri;
 }
-
-// WARN:
-// 1) Uses malloc/free
-// 2) Uses std:: stuff (profile)
 
 static void
 SmlInt_ClusterCoplanarPatches(sml_walkable_list *List)
@@ -214,10 +185,12 @@ SmlInt_ClusterCoplanarPatches(sml_walkable_list *List)
 
             sml_edge_key Key { A, B };
 
-            auto &Shared = List->EdgeToTri[Key];
-            if (Shared.size() == 2)
+            auto Shared = List->EdgeToTri.Get(Key);
+            if (Shared.Count == 2)
             {
-                Adj->V[Adj->Count++] = (Shared[0] == TriIdx ? Shared[1] : Shared[0]);
+                Adj->V[Adj->Count++] = (Shared.Values[0] == TriIdx ? 
+                                                       Shared.Values[1] :
+                                                       Shared.Values[0]);
             }
         }
     }
@@ -258,5 +231,4 @@ SmlInt_ClusterCoplanarPatches(sml_walkable_list *List)
             }
         }
     }
-
 }
