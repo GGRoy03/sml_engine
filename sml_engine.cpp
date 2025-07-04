@@ -1,8 +1,10 @@
 #include <stdint.h>
 #include <stdbool.h>
+#include <intrin.h>
 
-typedef uint8_t  sml_u8;
-typedef uint32_t sml_u32;
+typedef uint8_t     sml_u8;
+typedef uint32_t    sml_u32;
+typedef uint64_t    sml_u64;
 
 typedef int sml_i32;
 
@@ -22,7 +24,11 @@ enum class sml_instanced : sml_u32 {};
 #include "third_party/stb_image.h"
 
 #define IMGUI_DISABLE_CHECKVERSION
-#include "../code/third_party/imgui/imgui.h"
+#include "third_party/imgui/imgui.h"
+
+#define XXH_STATIC_LINKING_ONLY
+#define XXH_IMPLEMENTATION
+#include "third_party/xxhash.h"
 
 #pragma warning(push)
 #pragma warning(disable: 4505 4996) // Unreferenced functions | Unsafe functions
@@ -32,6 +38,7 @@ enum class sml_instanced : sml_u32 {};
 
 // Data structures
 #include "data_structures/sml_dynamic_array.cpp"
+#include "data_structures/sml_hashmap.cpp"
 
 // Math
 #include "math/vector.cpp"
