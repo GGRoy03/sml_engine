@@ -1,15 +1,5 @@
 #include <type_traits> // static type checking
 
-// TODO:
-// 1) Add a [] operator overloading such that we can index into values without
-// too much verbosity.
-// 2) Maybe add a destructor for freeing the array? Unsure. It would prevent memory
-// leaks quite easily. Basically we remove the free function and implement it in the 
-// desctructor. I don't know how to feel about desctructors. It makes it 
-// non-trivially copyable and it hides some code, but at the same time, it prevents
-// leaks which seems like one of the hardest bug to catch in some way, because it
-// doesn't really have an effect unless extreme.
-
 template <typename T>
 struct sml_dynamic_array
 {

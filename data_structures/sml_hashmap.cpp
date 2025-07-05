@@ -84,10 +84,11 @@ struct sml_hashmap
         this->MetaDataHeap = SmlInt_PushMemory(BucketCount * sizeof(sml_u8));
         this->MetaData     = (sml_u8*)this->MetaDataHeap.Data;
 
+        memset(this->Buckets, 0, BucketCount * sizeof(sml_hashmap_entry<K, V>));
         memset(this->MetaData, this->EmptyBucketTag, BucketCount * sizeof(sml_u8));
     }
 
-    V Get(K Key)
+    V& Get(K Key)
     {
         sml_u32 ProbeCount = 0;
         sml_u64 HashedValue = XXH64(&Key, sizeof(Key), 0);
@@ -126,7 +127,15 @@ struct sml_hashmap
             // NOTE: Not really clear what we should do.
             if(MaskEmpty)
             {
-                Sml_Assert(!"Internal bug or user error");
+                sml_i32 Lane = ctz32(MaskEmpty);
+                sml_u32 Index = (GroupIndex * this->BucketGroupSize) + Lane;
+
+                sml_hashmap_entry<K, V>* Entry = this->Buckets + Index;
+                Entry->Key = Key;
+
+                Meta[Lane] = Tag;
+
+                return Entry->Value;
             }
 
             ProbeCount++;
