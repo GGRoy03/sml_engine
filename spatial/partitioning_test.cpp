@@ -26,6 +26,8 @@ struct sml_adjacent_tris
 
 struct sml_walkable_list
 {
+    sml_mesh *Mesh;
+
     sml_dynamic_array<sml_walkable_tri> 
     Walkable;
 
@@ -37,6 +39,7 @@ static sml_walkable_list
 SmlInt_ExtractWalkableList(sml_mesh *Mesh, sml_f32 MaxSlopeDegree)
 {
     sml_walkable_list List = {};
+    List.Mesh = Mesh;
 
     sml_u32 IdxCnt = sml_u32(Mesh->IndexDataSize / sizeof(sml_u32));
     sml_u32 TriCnt = IdxCnt / 3;
@@ -98,11 +101,27 @@ SmlInt_BuildTriangleAdjency(sml_walkable_list *List)
                 Key.EdgeB    = Temp;
             }
 
-            auto Array = List->EdgeToTri.Get(Key);
+            auto &Array = List->EdgeToTri.Get(Key);
+            if (!Array.Values)
+            {
+                Array = sml_dynamic_array<sml_u32>(3);
+            }
             Array.Push(TriIndex);
         }
     }
 }
+
+static sml_f32
+SmlInt_SignedArea(sml_vector2 *A, sml_vector2 *B, sml_vector2 *C)
+{
+    sml_f32 SignedArea = (B->x - A->x) * (C->y - A->y) -
+                         (B->y - A->y) * (C->x - A->x);
+
+    return SignedArea;
+}
+
+// WARN:
+// 1) This is a big prototype hence all of the leaks.
 
 static void
 SmlInt_ClusterCoplanarPatches(sml_walkable_list *List)
@@ -153,8 +172,8 @@ SmlInt_ClusterCoplanarPatches(sml_walkable_list *List)
     {
         if(Visited.Values[TriIndex]) continue;
 
-        auto  Stack   = sml_dynamic_array<sml_u32>(0);
-        auto *Cluster = Clusters.PushNext();
+        auto Stack   = sml_dynamic_array<sml_u32>(0);
+        auto Cluster = sml_dynamic_array<sml_u32>(0);
 
         Stack.Push(TriIndex);
         Visited.Values[TriIndex] = true;
@@ -163,7 +182,7 @@ SmlInt_ClusterCoplanarPatches(sml_walkable_list *List)
         {
             sml_u32 Current = Stack.Pop();
 
-            Cluster->Push(Current);
+            Cluster.Push(Current);
 
             auto *Adj           = Adjacents.Values + Current;
             auto  CurrentNormal = List->Walkable[Current].Normal;
@@ -181,5 +200,113 @@ SmlInt_ClusterCoplanarPatches(sml_walkable_list *List)
                 }
             }
         }
+
+        Clusters.Push(Cluster);
+    }
+
+    // NOTE: Extract the boundaries
+
+    for(sml_u32 ClusterIdx = 0; ClusterIdx < Clusters.Count; ClusterIdx++)
+    {
+        auto Boundary = sml_dynamic_array<sml_edge_key>(0);
+
+        sml_dynamic_array<sml_u32> *Cluster  = Clusters.Values + ClusterIdx;
+
+        for(sml_u32 TriIdx = 0; TriIdx < Cluster->Count; TriIdx++)
+        {
+            sml_adjacent_tris *NeighborTris = Adjacents.Values + TriIdx;
+
+            if(NeighborTris->Count < 3)
+            {
+                sml_walkable_tri *Tri = List->Walkable.Values + TriIdx;
+
+                for(sml_u32 EdgeIdx = 0; EdgeIdx < 3; EdgeIdx++)
+                {
+                    sml_u32 A = Tri->Indices[EdgeIdx];
+                    sml_u32 B = Tri->Indices[(EdgeIdx + 1) % 3];
+
+                    if (A > B)
+                    {
+                        sml_u32 Temp = A;
+                        A = B;
+                        B = Temp;
+                    }
+
+                    sml_edge_key Key{A, B};
+                    auto Array = List->EdgeToTri.Get(Key);
+
+                    if(Array.Count == 1)
+                    {
+                        Boundary.Push(Key);
+                    }
+                }
+            }
+        }
+
+        Sml_Assert(Boundary.Count > 0);
+
+        auto CurrentKey    = Boundary[0];
+        auto CurrentCorner = CurrentKey.EdgeB;
+
+        sml_dynamic_array LoopVertices = sml_dynamic_array<sml_u32>(0);
+        LoopVertices.Push(CurrentKey.EdgeA);
+        LoopVertices.Push(CurrentKey.EdgeB);
+
+        while(true)
+        {
+            sml_edge_key NextKey = {};
+            bool         Found   = false;
+
+            for (sml_u32 EdgeKeyIdx = 0; EdgeKeyIdx < Boundary.Count; EdgeKeyIdx++)
+            {
+                sml_edge_key Key = Boundary[EdgeKeyIdx];
+
+                if (Key.EdgeA == CurrentKey.EdgeA && Key.EdgeB == CurrentKey.EdgeB)
+                {
+                    continue;
+                }
+
+                if (Key.EdgeA == CurrentCorner || Key.EdgeB == CurrentCorner)
+                {
+                    NextKey = Key;
+                    Found   = true;
+                    break;
+                }
+
+            }
+
+            if(!Found) Sml_Assert(!"Not possible!");
+
+            sml_u32 New = (NextKey.EdgeA == CurrentCorner) ? NextKey.EdgeB :
+                                                             NextKey.EdgeA;
+            if(New == LoopVertices[0]) break;
+
+            LoopVertices.Push(New);
+
+            CurrentKey    = NextKey;
+            CurrentCorner = New;
+        }
+
+        // NOTE: To perform triangulation we need to project the triangles onto a
+        // 2D space. We use X, Z harcoded for now, because we know the input shape.
+        // We might need to do some sort to determine which plane the projection
+        // should occur on before feeding it to the routine.
+
+        auto  Poly2D = sml_dynamic_array<sml_vector2>(LoopVertices.Count);
+        auto *VtxPtr = (sml_vertex*)List->Mesh->VertexData;
+        for(sml_u32 Idx = 0; Idx < Poly2D.Capacity; Idx++)
+        {
+            sml_u32 VtxIdx = LoopVertices[Idx];
+            sml_vector2 Position = sml_vector2(VtxPtr[VtxIdx].Position.x,
+                                               VtxPtr[VtxIdx].Position.z);
+            Poly2D.Push(Position);
+        }
+
+        // NOTE: We use the simplest case of triangulation, because we know we
+        // are feeding convex shapes.
+
+        auto IdxList = SmlInt_Triangulate(Poly2D, SmlTriangulate_Fan);
+
+        Boundary.Free();
     }
 }

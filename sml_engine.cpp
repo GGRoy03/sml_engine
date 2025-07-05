@@ -43,6 +43,7 @@ enum class sml_instanced : sml_u32 {};
 // Math
 #include "math/vector.cpp"
 #include "math/matrix.cpp"
+#include "math/geometry.cpp"
 
 // Rendering
 #include "platform/sml_platform.cpp"
