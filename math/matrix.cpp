@@ -18,7 +18,7 @@ struct sml_matrix4
 };
 
 // ===================================
-// Math Helpers
+// Helpers
 // ===================================
 
 static sml_matrix4
