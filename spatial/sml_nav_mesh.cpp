@@ -101,7 +101,7 @@ SmlInt_BuildNavPolygons(sml_dynamic_array<sml_dynamic_array<sml_u32>> &Clusters,
         for(sml_u32 LoopIdx = 0; LoopIdx < LoopVertices.Count; LoopIdx++)
         {
             sml_point PointIdx = LoopVertices[LoopIdx];
-            NavPoly.Verts.Push(List->Positions->Values[PointIdx]);
+            NavPoly.Verts.Push(List->Positions[PointIdx]);
         }
 
         NavPolygons.Push(NavPoly);
@@ -117,14 +117,14 @@ SmlInt_BuildNavPolygons(sml_dynamic_array<sml_dynamic_array<sml_u32>> &Clusters,
 }
 
 static sml_instance
-SmlInt_CreateDebugInstance(sml_dynamic_array<sml_nav_poly> &NavPolygons)
+SmlInt_CreateNavMeshDebugInstance(sml_nav_poly *NavPolygons, sml_u32 Count)
 {
     auto DebugVerts   = sml_dynamic_array<sml_vertex>(0);
     auto DebugIndices = sml_dynamic_array<sml_u32>(0);
 
-    for(sml_u32 PolyIdx = 0; PolyIdx < NavPolygons.Count; PolyIdx++)
+    for(sml_u32 PolyIdx = 0; PolyIdx < Count; PolyIdx++)
     { 
-        auto   *Poly = NavPolygons.Values + PolyIdx;
+        auto   *Poly = NavPolygons + PolyIdx;
         sml_u32 Base = DebugVerts.Count;
 
         for(sml_u32 VtxIdx = 0; VtxIdx < Poly->Verts.Count; VtxIdx++)
@@ -177,10 +177,11 @@ SmlInt_CreateDebugInstance(sml_dynamic_array<sml_nav_poly> &NavPolygons)
 // 2) Code is really ugly
 
 static sml_dynamic_array<sml_nav_poly>
-Sml_BuildNavMesh(sml_dynamic_array<sml_vector3> *Points, 
-                 sml_dynamic_array<sml_u32> *Indices, sml_f32 SlopeDegree)
+Sml_BuildNavMesh(sml_vector3 *Points, sml_u32 *Indices, sml_u32 IdxCount,
+                 sml_f32 SlopeDegree)
 {
-    sml_walkable_list List = SmlInt_BuildWalkableList(Points, Indices, SlopeDegree);
+    sml_walkable_list List = SmlInt_BuildWalkableList(Points, Indices, IdxCount,
+                                                      SlopeDegree);
 
     sml_dynamic_array<sml_dynamic_array<sml_tri>> 
     Clusters = SmlInt_BuildPolygonClusters(&List);

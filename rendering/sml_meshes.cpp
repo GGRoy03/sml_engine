@@ -87,3 +87,19 @@ Sml_GetCubeMesh()
 
     return Mesh;
 }
+
+static sml_dynamic_array<sml_vector3>
+SmlInt_GetPositionsFromMesh(sml_mesh *Mesh)
+{
+    auto VertexCount = sml_u32(Mesh->VertexDataSize / sizeof(sml_vertex));
+    auto Positions   = sml_dynamic_array<sml_vector3>();
+
+    auto *VtxPtr = (sml_vertex*)Mesh->VertexData;
+
+    for(sml_u32 Idx = 0; Idx < VertexCount; Idx++)
+    {
+        Positions.Push(VtxPtr[Idx].Position);
+    }
+
+    return Positions;
+}

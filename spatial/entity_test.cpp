@@ -15,6 +15,13 @@ enum SmlEntity_Type
 
 struct sml_mesh;
 
+struct sml_entity_debug_data
+{
+    sml_dynamic_array<sml_nav_poly> NavMesh;
+    sml_instance                    NavMeshInstance;
+    bool                            HasNavMesh;
+};
+
 struct sml_entity
 {
     // Core-data
@@ -33,6 +40,9 @@ struct sml_entity
         sml_instance  Instance;
         sml_instanced Instanced;
     } Data;
+
+    // Debug data
+    sml_entity_debug_data Debug;
 };
 
 struct sml_entity_manager
@@ -105,6 +115,10 @@ Sml_CreateEntity(sml_mesh *Mesh, sml_vector3 Position, sml_u32 Material,
     E->Data.Instance = Sml_SetupInstance(Mesh, Material);
 
     strncpy(E->Name, Identifier, 63);
+
+    E->Debug.HasNavMesh      = false;
+    E->Debug.NavMesh         = {};
+    E->Debug.NavMeshInstance = sml_instance(0);
 
     Sml_UpdateInstance(E->Position, E->Data.Instance);
 
@@ -184,10 +198,10 @@ Sml_ShowEntityDebugUI()
             ImGui::Columns(2, "EntityData", false);
             ImGui::SetColumnWidth(0, 80);
 
-            ImGui::Text("Name");  ImGui::NextColumn();
-            ImGui::Text(E->Name); ImGui::NextColumn();
+            ImGui::Text("Name");    ImGui::NextColumn();
+            ImGui::Text(E->Name);   ImGui::NextColumn();
 
-            ImGui::Text("Position"); ImGui::NextColumn();
+            ImGui::Text("Position");ImGui::NextColumn();
             ImGui::PushItemWidth(-1);
 
             char PosLabel[32];
@@ -200,7 +214,36 @@ Sml_ShowEntityDebugUI()
             ImGui::PopItemWidth();
             ImGui::NextColumn();
 
+            ImGui::Text("Nav-Mesh"); ImGui::NextColumn();
+            if (ImGui::Button("Generate##navmesh", ImVec2(-1,0)))
+            {
+                // TODO: This crashes, debug.
+                if(!E->Debug.HasNavMesh)
+                {
+                    sml_dynamic_array<sml_vector3> Points 
+                        = SmlInt_GetPositionsFromMesh(E->Mesh);
+
+                    sml_u32 IdxCount = sml_u32(E->Mesh->IndexDataSize/sizeof(sml_u32));
+                    E->Debug.NavMesh = 
+                        Sml_BuildNavMesh(Points.Values, E->Mesh->IndexData, IdxCount,
+                                         10.0f);
+
+                    E->Debug.NavMeshInstance =
+                        SmlInt_CreateNavMeshDebugInstance(E->Debug.NavMesh.Values,
+                                                          E->Debug.NavMesh.Count);
+
+                    Points.Free();
+                    E->Debug.HasNavMesh = true;
+                }
+            }
+
+            ImGui::NextColumn();
             ImGui::Columns(1);
+        }
+
+        if(E->Debug.HasNavMesh)
+        {
+            Sml_DrawInstance(E->Debug.NavMeshInstance);
         }
     }
 

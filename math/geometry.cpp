@@ -53,8 +53,8 @@ struct sml_walkable_list
     sml_dynamic_array<sml_neighbor_tris> Neighbors;
 
     // Base mesh data
-    sml_dynamic_array<sml_vector3> *Positions;
-    sml_dynamic_array<sml_u32>     *Indices;
+    sml_vector3 *Positions;
+    sml_u32     *Indices;
 
     // Map of an edge to a list of triangles that have this mesh
     sml_hashmap<sml_tri_edge, sml_edge_tris> EdgeToTris;
@@ -95,15 +95,14 @@ SmlInt_SignedArea(sml_vector2 *A, sml_vector2 *B, sml_vector2 *C)
 }
 
 static sml_walkable_list
-SmlInt_BuildWalkableList(sml_dynamic_array<sml_vector3> *Positions,
-                         sml_dynamic_array<sml_u32>     *Indices,
-                         sml_f32                         SlopeDeg)
+SmlInt_BuildWalkableList(sml_vector3 *Positions, sml_u32 *Indices, sml_u32 IdxCount,
+                         sml_f32 SlopeDeg)
 {
     sml_walkable_list List = {};
     List.Positions = Positions;
     List.Indices   = Indices;
 
-    sml_u32 TriCount = Indices->Count / 3;
+    sml_u32 TriCount = IdxCount / 3;
     List.Walkable    = sml_dynamic_array<sml_walkable_tri>(TriCount);
 
     List.SlopeThresold = cosf(SlopeDeg * (3.14158265f / 180.0f));
@@ -113,13 +112,13 @@ SmlInt_BuildWalkableList(sml_dynamic_array<sml_vector3> *Positions,
         sml_walkable_tri Tri  = {};
         sml_u32          Base = TriIdx * 3;
 
-        Tri.Points[0] = Indices->Values[Base + 0];
-        Tri.Points[1] = Indices->Values[Base + 1];
-        Tri.Points[2] = Indices->Values[Base + 2];
+        Tri.Points[0] = Indices[Base + 0];
+        Tri.Points[1] = Indices[Base + 1];
+        Tri.Points[2] = Indices[Base + 2];
 
-        Tri.v0 = Positions->Values[Tri.Points[0]];
-        Tri.v1 = Positions->Values[Tri.Points[1]];
-        Tri.v2 = Positions->Values[Tri.Points[2]];
+        Tri.v0 = Positions[Tri.Points[0]];
+        Tri.v1 = Positions[Tri.Points[1]];
+        Tri.v2 = Positions[Tri.Points[2]];
 
         sml_vector3 EdgeVec0 = Tri.v1 - Tri.v0;
         sml_vector3 EdgeVec1 = Tri.v2 - Tri.v0;

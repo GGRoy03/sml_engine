@@ -50,7 +50,7 @@ enum class sml_instanced : sml_u32 {};
 #include "rendering/sml_rendering.cpp"
 
 // Spatial
-#include "spatial/entity_test.cpp"
 #include "spatial/sml_nav_mesh.cpp"
+#include "spatial/entity_test.cpp"
 
 #pragma warning(pop)
