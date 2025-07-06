@@ -2,6 +2,10 @@
 // Type Definitions
 // ===================================
 
+// BUG: When allocating a block from a free block, we need to add the space that 
+// is not used to it. Such that when re-freeing that block we don't lose track
+// of the old memory.
+
 struct sml_memory_block
 {
     void  *Data;

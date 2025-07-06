@@ -51,5 +51,6 @@ enum class sml_instanced : sml_u32 {};
 
 // Spatial
 #include "spatial/entity_test.cpp"
+#include "spatial/sml_nav_mesh.cpp"
 
 #pragma warning(pop)
