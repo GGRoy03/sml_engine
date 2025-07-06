@@ -80,7 +80,7 @@ struct sml_dynamic_array
 
     void Reset()
     {
-        This->Count = 0;
+        this->Count = 0;
     }
 
     T& operator[](sml_u32 Index)

@@ -94,6 +94,9 @@ SmlInt_SignedArea(sml_vector2 *A, sml_vector2 *B, sml_vector2 *C)
     return SignedArea;
 }
 
+// NOTE: We might use a different type of arrays. For heap arrays that do not
+// handle reallocations.
+
 static sml_walkable_list
 SmlInt_BuildWalkableList(sml_dynamic_array<sml_vector3> *Positions,
                          sml_dynamic_array<sml_u32>     *Indices,
@@ -215,6 +218,9 @@ SmlInt_BuildPolygonClusters(sml_walkable_list *List)
             }
         }
     }
+
+    Visited.Free();
+    Stack.Free();
 
     return Clusters;
 }

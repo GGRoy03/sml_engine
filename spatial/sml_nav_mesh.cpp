@@ -18,11 +18,12 @@ static sml_dynamic_array<sml_nav_poly>
 SmlInt_BuildNavPolygons(sml_dynamic_array<sml_dynamic_array<sml_u32>> &Clusters,
                         sml_walkable_list *List)
 {
-    auto NavPolygons = sml_dynamic_array<sml_nav_poly>(Clusters.Count);
+    auto NavPolygons  = sml_dynamic_array<sml_nav_poly>(Clusters.Count);
+    auto Boundary     = sml_dynamic_array<sml_tri_edge>(0);
+    auto LoopVertices = sml_dynamic_array<sml_point>(0);
 
     for(sml_u32 ClusterIdx = 0; ClusterIdx < Clusters.Count; ClusterIdx++)
     {
-        auto Boundary = sml_dynamic_array<sml_tri_edge>(0);
         auto Cluster  = Clusters[ClusterIdx];
 
         for(sml_u32 TriIdx = 0; TriIdx < Cluster.Count; TriIdx++)
@@ -51,7 +52,6 @@ SmlInt_BuildNavPolygons(sml_dynamic_array<sml_dynamic_array<sml_u32>> &Clusters,
         auto CurrentPoint  = Boundary[0].Point0;
         auto CurrentCorner = Boundary[0].Point1;
 
-        auto LoopVertices = sml_dynamic_array<sml_point>(0);
         LoopVertices.Push(CurrentPoint);
         LoopVertices.Push(CurrentCorner);
 
@@ -105,7 +105,13 @@ SmlInt_BuildNavPolygons(sml_dynamic_array<sml_dynamic_array<sml_u32>> &Clusters,
         }
 
         NavPolygons.Push(NavPoly);
+
+        LoopVertices.Reset();
+        Boundary.Reset();
     }
+
+    LoopVertices.Free();
+    Boundary.Free();
 
     return NavPolygons;
 }
