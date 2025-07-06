@@ -2,10 +2,6 @@
 // Type Definitions
 // ===================================
 
-// BUG: When allocating a block from a free block, we need to add the space that 
-// is not used to it. Such that when re-freeing that block we don't lose track
-// of the old memory.
-
 struct sml_memory_block
 {
     void  *Data;
@@ -49,7 +45,16 @@ SmlInt_EndTemporaryRegion(size_t Marker)
     {
         Sml_Assert(!"Memory overflow from temporary region.");
     }
+
+    SmlMemory.PushSize = Marker;
 }
+
+// WARN:
+// 1) The behavior of this allocator is to always give V >= Size. If V is allocated
+// from a free block it might concatenate the old free-block with itself for
+// simplicity. We should not do that and instead carve the block into two and insert
+// one of them (SizeDifference) into the free list. It's not a bug per-say, but it's
+// not great behavior.
 
 static sml_memory_block
 SmlInt_PushMemory(size_t Size)
@@ -69,16 +74,18 @@ SmlInt_PushMemory(size_t Size)
         Sml_Assert(!"Out of memory");
     }
 
-    for(sml_u32 FreeIndex = SmlMemory.FreeCount = 1; FreeIndex > 0; FreeIndex--)
+    for(sml_u32 FreeIndex = SmlMemory.FreeCount; FreeIndex-- > 0;)
     {
         sml_memory_block *FreeBlock = SmlMemory.FreeList + FreeIndex;
 
         if(FreeBlock->Size >= Size)
         {
+            size_t SizeDifference = FreeBlock->Size - Size;
+
             sml_memory_block Block = {};
             Block.Data = (sml_u8*)SmlMemory.PushBase + FreeBlock->At;
-            Block.Size = Size;
-            Block.At   = SmlMemory.PushSize;
+            Block.Size = Size + SizeDifference;
+            Block.At   = FreeBlock->At;
 
             SmlMemory.PushSize  += Size;
             SmlMemory.FreeCount -= 1;
@@ -105,10 +112,6 @@ SmlInt_FreeMemory(sml_memory_block *Block)
         Sml_Assert(!"Free list is already full");
         return;
     }
-
-    Block->Data = nullptr;
-    Block->Size = 0;
-    Block->At   = 0;
 
     SmlMemory.FreeList[SmlMemory.FreeCount++] = *Block;
 }
