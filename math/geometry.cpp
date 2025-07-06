@@ -25,6 +25,11 @@ struct sml_walkable_tri
 struct sml_tri_edge
 {
     sml_point Point0, Point1;
+
+    bool operator==(const sml_tri_edge &Edge) const noexcept
+    {
+        return (Edge.Point0 == Point0 && Edge.Point1 == Point1);
+    }
 };
 
 struct sml_edge_tris
@@ -54,13 +59,15 @@ struct sml_walkable_list
     // Map of an edge to a list of triangles that have this mesh
     sml_hashmap<sml_tri_edge, sml_edge_tris> EdgeToTris;
 
+    // Other meta-data
+    sml_f32 SlopeThresold;
 };
 
 // ===================================
 // Internal Helpers
 // ===================================
 
-static inline sml_edge
+static inline sml_tri_edge
 SmlInt_MakeEdgeKey(sml_u32 EdgeIdx, sml_point *Points)
 {
     sml_tri_edge Edge;
@@ -78,6 +85,15 @@ SmlInt_MakeEdgeKey(sml_u32 EdgeIdx, sml_point *Points)
     return Edge;
 }
 
+static sml_f32
+SmlInt_SignedArea(sml_vector2 *A, sml_vector2 *B, sml_vector2 *C)
+{
+    sml_f32 SignedArea = (B->x - A->x) * (C->y - A->y) -
+                         (B->y - A->y) * (C->x - A->x);
+
+    return SignedArea;
+}
+
 static sml_walkable_list
 SmlInt_BuildWalkableList(sml_dynamic_array<sml_vector3> *Positions,
                          sml_dynamic_array<sml_u32>     *Indices,
@@ -87,19 +103,19 @@ SmlInt_BuildWalkableList(sml_dynamic_array<sml_vector3> *Positions,
     List.Positions = Positions;
     List.Indices   = Indices;
 
-    sml_u32 TriCount = Indices.Count / 3;
-    List.Walkable    = sml_dynamic_array<sml_walkable_tri2>(TriCount);
+    sml_u32 TriCount = Indices->Count / 3;
+    List.Walkable    = sml_dynamic_array<sml_walkable_tri>(TriCount);
 
-    sml_f32 SlopeThresold = cosf(SlopeDeg * (3.14158265f / 180.0f));
+    List.SlopeThresold = cosf(SlopeDeg * (3.14158265f / 180.0f));
 
     for(sml_u32 TriIdx = 0; TriIdx < TriCount; TriIdx++)
     {
-        sml_walkable_tri2 Tri  = {};
-        sml_u32           Base = TriIdx * 3;
+        sml_walkable_tri Tri  = {};
+        sml_u32          Base = TriIdx * 3;
 
-        Tri.Points[0] = Indices[Base + 0];
-        Tri.Points[1] = Indices[Base + 1];
-        Tri.Points[2] = Indices[Base + 2];
+        Tri.Points[0] = Indices->Values[Base + 0];
+        Tri.Points[1] = Indices->Values[Base + 1];
+        Tri.Points[2] = Indices->Values[Base + 2];
 
         Tri.v0 = Positions->Values[Tri.Points[0]];
         Tri.v1 = Positions->Values[Tri.Points[1]];
@@ -110,7 +126,7 @@ SmlInt_BuildWalkableList(sml_dynamic_array<sml_vector3> *Positions,
 
         Tri.Normal = SmlVec3_Normalize(SmlVec3_VectorProduct(EdgeVec0, EdgeVec1));
 
-        if(Tri.Normal.y > SlopeThresold)
+        if(Tri.Normal.y > List.SlopeThresold)
         {
             List.Walkable.Push(Tri);
         }
@@ -121,13 +137,13 @@ SmlInt_BuildWalkableList(sml_dynamic_array<sml_vector3> *Positions,
 
     for(sml_u32 TriIdx = 0; TriIdx < List.Walkable.Count; TriIdx++)
     {
-        sml_walkable_tri Tri = List->Walkable[TriIdx];
+        sml_walkable_tri Tri = List.Walkable[TriIdx];
 
         for(sml_u32 EdgeIdx = 0; EdgeIdx < 3; EdgeIdx++)
         {
             sml_tri_edge Edge = SmlInt_MakeEdgeKey(EdgeIdx, Tri.Points);
 
-            auto &Triangles = List->EdgeToTris.Get(Edge);
+            auto &Triangles = List.EdgeToTris.Get(Edge);
             Triangles.Tris[Triangles.Count++] = TriIdx;
         }
     }
@@ -144,18 +160,63 @@ SmlInt_BuildWalkableList(sml_dynamic_array<sml_vector3> *Positions,
         {
             sml_tri_edge Edge = SmlInt_MakeEdgeKey(EdgeIdx, Tri.Points);
 
-            auto &Triangles = List->EdgeToTri.Get(Key);
+            auto &Triangles = List.EdgeToTris.Get(Edge);
             if (Triangles.Count == 2)
             {
                 sml_tri SharedTri = 
-                    (Triangles.Values[0] == TriIdx ? Triangles.Values[1] :
-                                                     Triangles.Values[0]);
+                    (Triangles.Tris[0] == TriIdx ? Triangles.Tris[1] :
+                                                   Triangles.Tris[0]);
                 Neighbors.Tris[Neighbors.Count++] = SharedTri;
+            }
+        }
+
+        List.Neighbors.Push(Neighbors);
+    }
+
+    return List;
+}
+
+static sml_dynamic_array<sml_dynamic_array<sml_tri>>
+SmlInt_BuildPolygonClusters(sml_walkable_list *List)
+{
+    auto Visited  = sml_dynamic_array<bool>(List->Walkable.Count);
+    auto Clusters = sml_dynamic_array<sml_dynamic_array<sml_tri>>(0);
+    auto Stack    = sml_dynamic_array<sml_tri>(0);
+
+    for(sml_u32 TriIdx = 0; TriIdx < List->Walkable.Count; TriIdx++)
+    {
+        if(Visited[TriIdx]) continue;
+
+        auto Cluster = sml_dynamic_array<sml_tri>(0);
+
+        Stack.Push(TriIdx);
+        Visited[TriIdx] = true;
+
+        while(Stack.Count > 0)
+        {
+            sml_tri Current = Stack.Pop();
+            Cluster.Push(Current);
+
+            auto Neighbors = List->Neighbors[Current];
+            auto Normal    = List->Walkable[Current].Normal;
+
+            for(sml_u32 NIdx = 0; NIdx < Neighbors.Count; NIdx++)
+            {
+                sml_tri Neighbor = Neighbors.Tris[NIdx];
+
+                if(Visited[Neighbor]) continue;
+
+                auto NeighborNormal = List->Walkable[Neighbor].Normal;
+                if(SmlVec3_Dot(Normal, NeighborNormal) >= List->SlopeThresold)
+                {
+                    Visited[Neighbor] = true;
+                    Stack.Push(Neighbor);
+                }
             }
         }
     }
 
-    return List;
+    return Clusters;
 }
 
 // WARN:

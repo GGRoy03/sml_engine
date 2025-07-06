@@ -1,7 +1,3 @@
-// NOTE: Temporary include (It might be the other way around)
-
-#include "partitioning_test.cpp"
-
 // ===================================
 // Type Definitions
 // ===================================
@@ -111,11 +107,6 @@ Sml_CreateEntity(sml_mesh *Mesh, sml_vector3 Position, sml_u32 Material,
     strncpy(E->Name, Identifier, 63);
 
     Sml_UpdateInstance(E->Position, E->Data.Instance);
-
-    // TEST: Let's try the nav-mesh builder.
-    sml_walkable_list List = SmlInt_ExtractWalkableList(E->Mesh, 45.0f);
-    SmlInt_BuildTriangleAdjency(&List);
-    SmlInt_ClusterCoplanarPatches(&List);
 
     return Id;
 }

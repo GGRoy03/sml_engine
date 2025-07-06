@@ -78,10 +78,21 @@ struct sml_dynamic_array
         this->Capacity = 0;
     }
 
-    T operator[](sml_u32 Index)
+    void Reset()
+    {
+        This->Count = 0;
+    }
+
+    T& operator[](sml_u32 Index)
     {
         Sml_Assert(Index < this->Count);
 
+        return this->Values[Index];
+    }
+
+    const T& operator[](sml_u32 Index) const
+    {
+        Sml_Assert(Index < this->Count);
         return this->Values[Index];
     }
 };
