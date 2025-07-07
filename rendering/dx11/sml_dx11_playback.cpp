@@ -403,12 +403,12 @@ SmlDx11_CreateInstance(sml_setup_command_instance *Payload)
 
     {
         D3D11_BUFFER_DESC Desc = {};
-        Desc.ByteWidth = (UINT)Payload->Mesh->VertexDataSize;
+        Desc.ByteWidth = (UINT)Payload->VtxHeapData.Size;
         Desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         Desc.Usage     = D3D11_USAGE_IMMUTABLE;
 
         D3D11_SUBRESOURCE_DATA Data = {};
-        Data.pSysMem = Payload->Mesh->VertexData;
+        Data.pSysMem = Payload->VtxHeapData.Data;
 
         HRESULT Status = 
             Dx11.Device->CreateBuffer(&Desc, &Data, &Instance.Geometry.VertexBuffer);
@@ -418,98 +418,33 @@ SmlDx11_CreateInstance(sml_setup_command_instance *Payload)
 
     {
         D3D11_BUFFER_DESC Desc = {};
-        Desc.ByteWidth = (UINT)Payload->Mesh->IndexDataSize;
+        Desc.ByteWidth = (UINT)Payload->IdxHeapData.Size;
         Desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
         Desc.Usage     = D3D11_USAGE_IMMUTABLE;
 
         D3D11_SUBRESOURCE_DATA Data = {};
-        Data.pSysMem = Payload->Mesh->IndexData;
+        Data.pSysMem = Payload->IdxHeapData.Data;
 
         HRESULT Status = 
             Dx11.Device->CreateBuffer(&Desc, &Data, &Instance.Geometry.IndexBuffer);
 
-        Instance.Geometry.IndexCount = 
-            sml_u32(Payload->Mesh->IndexDataSize / sizeof(sml_u32));
+        Instance.Geometry.IndexCount = Payload->IdxCount;
 
         Sml_Assert(SUCCEEDED(Status));
     }
 
-    // NOTE: This is another reason why templated backend resources would be nice
+    if(Payload->Flags & SmlCommand_InstanceFreeHeap)
+    {
+        SmlInt_FreeMemory(Payload->VtxHeapData);
+        SmlInt_FreeMemory(Payload->IdxHeapData);
+    }
+
+    // NOTE: This is another reason why templated backend resources would be nice.
+    // Be careful what we wish for with templates. They can go out of control
+    // really quickly.
+
     SmlInt_PushToBackendResource(&Renderer->Instances, &Instance, 
                                  (sml_u32)Payload->Instance);
-}
-
-// WARN:
-// 1) Does not free the meshes, flag based?
-// 2) Uses malloc
-
-static void
-SmlDx11_CreateInstanced(sml_setup_command_instanced *Payload)
-{
-    sml_dx11_instanced Instanced = {};
-
-    {
-        D3D11_BUFFER_DESC Desc = {};
-        Desc.ByteWidth = (UINT)Payload->Mesh->VertexDataSize;
-        Desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-        Desc.Usage     = D3D11_USAGE_IMMUTABLE;
-
-        D3D11_SUBRESOURCE_DATA Data = {};
-        Data.pSysMem = Payload->Mesh->VertexData;
-
-        HRESULT Status = 
-            Dx11.Device->CreateBuffer(&Desc, &Data, &Instanced.Geometry.VertexBuffer);
-
-        Sml_Assert(SUCCEEDED(Status));
-    }
-
-    {
-        D3D11_BUFFER_DESC Desc = {};
-        Desc.ByteWidth = (UINT)Payload->Mesh->IndexDataSize;
-        Desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-        Desc.Usage     = D3D11_USAGE_IMMUTABLE;
-
-        D3D11_SUBRESOURCE_DATA Data = {};
-        Data.pSysMem = Payload->Mesh->IndexData;
-
-        HRESULT Status = 
-            Dx11.Device->CreateBuffer(&Desc, &Data, &Instanced.Geometry.IndexBuffer);
-
-        Instanced.Geometry.IndexCount = 
-            sml_u32(Payload->Mesh->IndexDataSize / sizeof(sml_u32));
-
-        Sml_Assert(SUCCEEDED(Status));
-    }
-
-    {
-        D3D11_BUFFER_DESC Desc = {};
-        Desc.Usage               = D3D11_USAGE_DYNAMIC;
-        Desc.ByteWidth           = Payload->Count * sizeof(sml_matrix4);
-        Desc.BindFlags           = D3D11_BIND_SHADER_RESOURCE;
-        Desc.CPUAccessFlags      = D3D11_CPU_ACCESS_WRITE;
-        Desc.StructureByteStride = sizeof(sml_matrix4);
-        Desc.MiscFlags           = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-
-        HRESULT Status = Dx11.Device->CreateBuffer(&Desc, nullptr, &Instanced.Buffer);
-        Sml_Assert(SUCCEEDED(Status));
-
-        D3D11_SHADER_RESOURCE_VIEW_DESC SrvDesc = {};
-        SrvDesc.Format              = DXGI_FORMAT_UNKNOWN;
-        SrvDesc.ViewDimension       = D3D11_SRV_DIMENSION_BUFFER;
-        SrvDesc.Buffer.FirstElement = 0;
-        SrvDesc.Buffer.NumElements  = Payload->Count;
-
-        Status = Dx11.Device->CreateShaderResourceView(Instanced.Buffer, &SrvDesc,
-                                                       &Instanced.ResourceView);
-        Sml_Assert(SUCCEEDED(Status));
-    }
-
-    Instanced.Material  = Payload->Material;
-    Instanced.CPUMapped = (sml_matrix4*)malloc(Payload->Count * sizeof(sml_matrix4));
-    Instanced.Count     = Payload->Count;
-
-    SmlInt_PushToBackendResource(&Renderer->Instanced, &Instanced,
-                                 (sml_u32)Payload->Instanced);
 }
 
 // ===================================
@@ -693,12 +628,6 @@ SmlDx11_Playback()
             SmlDx11_CreateInstance(Payload);
         } break;
 
-        case SmlCommand_Instanced:
-        {
-            auto *Payload = (sml_setup_command_instanced*)(CmdPtr + Offset);
-            SmlDx11_CreateInstanced(Payload);
-        } break;
-
         case SmlCommand_InstanceData:
         {
             auto *Payload = (sml_update_command_instance_data*)(CmdPtr + Offset);
@@ -731,7 +660,7 @@ SmlDx11_Playback()
 
         default:
         {
-            Sml_Assert(!"Unknown command type.");
+            Sml_Assert(!"Unknown command type OR command !implemented by DirectX11");
             return;
         }
         }

@@ -85,7 +85,7 @@ struct sml_dynamic_array
 
     T& operator[](sml_u32 Index)
     {
-        Sml_Assert(Index < this->Count);
+        Sml_Assert(Index < this->Capacity);
 
         return this->Values[Index];
     }

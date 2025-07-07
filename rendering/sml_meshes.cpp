@@ -3,6 +3,13 @@ struct sml_vertex
     sml_vector3 Position;
     sml_vector3 Normal;
     sml_vector2 UV;
+
+    sml_vertex(sml_vector3 _Position, sml_vector3 _Normal, sml_vector2 _UV)
+    {
+        this->Position = _Position;
+        this->Normal   = _Normal;
+        this->UV       = _UV;
+    }
 };
 
 struct sml_vertex_color
@@ -12,6 +19,7 @@ struct sml_vertex_color
     sml_vector3 Color;
 };
 
+// NOTE: If GetCubeMesh works, remove this.
 static sml_vertex CubeVertices[] =
 {
     // Front face (Z+)
@@ -51,6 +59,7 @@ static sml_vertex CubeVertices[] =
     {{-0.5f, -0.5f,  0.5f}, { 0.0f, -1.0f,  0.0f}, {0.0f, 0.0f}},
 };
 
+// NOTE: If GetCubeMesh works, remove this.
 static u32 CubeIndices[] =
 {
     // Front face
@@ -67,38 +76,97 @@ static u32 CubeIndices[] =
     20, 21, 22, 20, 22, 23
 };
 
+template <typename V, typename I>
 struct sml_mesh
 {
-    void   *VertexData;
-    size_t  VertexDataSize;
+    sml_memory_block VtxHeap;
+    sml_memory_block IdxHeap;
 
-    sml_u32 *IndexData;
-    size_t   IndexDataSize;
+    V *VtxData;
+    I *IdxData;
+
+    sml_mesh(){};
+    sml_mesh(sml_u32 VtxCount, sml_u32 IdxCount)
+    {
+        this->VtxHeap = SmlInt_PushMemory(VtxCount * sizeof(V));
+        this->IdxHeap = SmlInt_PushMemory(IdxCount * sizeof(I));
+    }
+
+    inline sml_u32 IndexCount()
+    {
+        return sml_u32(this->IdxDataSize / sizeof(I));
+    }
 };
 
-static sml_mesh
+static sml_mesh<sml_vertex, sml_u32>
 Sml_GetCubeMesh()
 {
-    sml_mesh Mesh = {};
-    Mesh.VertexData     = CubeVertices;
-    Mesh.VertexDataSize = sizeof(CubeVertices);
-    Mesh.IndexData      = CubeIndices;
-    Mesh.IndexDataSize  = sizeof(CubeIndices);
+    sml_mesh<sml_vertex, sml_u32> Mesh = {};
+    Mesh.VtxHeap = SmlInt_PushMemory(24 * sizeof(sml_vertex));
+    Mesh.IdxHeap = SmlInt_PushMemory(36 * sizeof(sml_u32));
+    Mesh.VtxData = (sml_vertex*)Mesh.VtxHeap.Data;
+    Mesh.IdxData = (sml_u32*)Mesh.IdxHeap.Data;
+
+    sml_u32 V, I = 0;
+
+    // Front face
+    Mesh.VtxData[V++] = sml_vertex({-0.5f,-0.5f,0.5f},{0.0f,0.0f,1.0f},{0.0f,1.0f});
+    Mesh.VtxData[V++] = sml_vertex({ 0.5f,-0.5f,0.5f},{0.0f,0.0f,1.0f},{1.0f,1.0f});
+    Mesh.VtxData[V++] = sml_vertex({ 0.5f, 0.5f,0.5f},{0.0f,0.0f,1.0f},{1.0f,0.0f});
+    Mesh.VtxData[V++] = sml_vertex({-0.5f, 0.5f,0.5f},{0.0f,0.0f,1.0f},{0.0f,0.0f});
+    Mesh.IdxData[I++] = 0; Mesh.IdxData[I++] = 1; Mesh.IdxData[I++] = 2;
+    Mesh.IdxData[I++] = 0; Mesh.IdxData[I++] = 2; Mesh.IdxData[I++] = 3;
+
+    // Back face
+    Mesh.VtxData[V++] = sml_vertex({ 0.5f,-0.5f,-0.5f},{0.0f,0.0f,-1.0f},{0.0f,1.0f});
+    Mesh.VtxData[V++] = sml_vertex({-0.5f,-0.5f,-0.5f},{0.0f,0.0f,-1.0f},{1.0f,1.0f});
+    Mesh.VtxData[V++] = sml_vertex({-0.5f, 0.5f,-0.5f},{0.0f,0.0f,-1.0f},{1.0f,0.0f});
+    Mesh.VtxData[V++] = sml_vertex({ 0.5f, 0.5f,-0.5f},{0.0f,0.0f,-1.0f},{0.0f,0.0f});
+    Mesh.IdxData[I++] = 4; Mesh.IdxData[I++] = 5; Mesh.IdxData[I++] = 6;
+    Mesh.IdxData[I++] = 4; Mesh.IdxData[I++] = 6; Mesh.IdxData[I++] = 7;
+
+    // Left face
+    Mesh.VtxData[V++] = sml_vertex({-0.5f,-0.5f,-0.5f},{-1.0f,0.0f,0.0f},{0.0f,1.0f});
+    Mesh.VtxData[V++] = sml_vertex({-0.5f,-0.5f, 0.5f},{-1.0f,0.0f,0.0f},{1.0f,1.0f});
+    Mesh.VtxData[V++] = sml_vertex({-0.5f, 0.5f, 0.5f},{-1.0f,0.0f,0.0f},{1.0f,0.0f});
+    Mesh.VtxData[V++] = sml_vertex({-0.5f, 0.5f,-0.5f},{-1.0f,0.0f,0.0f},{0.0f,0.0f});
+    Mesh.IdxData[I++] = 8;  Mesh.IdxData[I++] = 9;  Mesh.IdxData[I++] = 10;
+    Mesh.IdxData[I++] = 8;  Mesh.IdxData[I++] = 10; Mesh.IdxData[I++] = 11;
+
+    // Right face
+    Mesh.VtxData[V++] = sml_vertex({0.5f,-0.5f, 0.5f},{1.0f,0.0f,0.0f},{0.0f,1.0f});
+    Mesh.VtxData[V++] = sml_vertex({0.5f,-0.5f,-0.5f},{1.0f,0.0f,0.0f},{1.0f,1.0f});
+    Mesh.VtxData[V++] = sml_vertex({0.5f, 0.5f,-0.5f},{1.0f,0.0f,0.0f},{1.0f,0.0f});
+    Mesh.VtxData[V++] = sml_vertex({0.5f, 0.5f, 0.5f},{1.0f,0.0f,0.0f},{0.0f,0.0f});
+    Mesh.IdxData[I++] = 12; Mesh.IdxData[I++] = 13; Mesh.IdxData[I++] = 14;
+    Mesh.IdxData[I++] = 12; Mesh.IdxData[I++] = 14; Mesh.IdxData[I++] = 15;
+
+    // Top face
+    Mesh.VtxData[V++] = sml_vertex({-0.5f,0.5f, 0.5f},{0.0f,1.0f,0.0f},{0.0f,1.0f});
+    Mesh.VtxData[V++] = sml_vertex({ 0.5f,0.5f, 0.5f},{0.0f,1.0f,0.0f},{1.0f,1.0f});
+    Mesh.VtxData[V++] = sml_vertex({ 0.5f,0.5f,-0.5f},{0.0f,1.0f,0.0f},{1.0f,0.0f});
+    Mesh.VtxData[V++] = sml_vertex({-0.5f,0.5f,-0.5f},{0.0f,1.0f,0.0f},{0.0f,0.0f});
+    Mesh.IdxData[I++] = 16; Mesh.IdxData[I++] = 17; Mesh.IdxData[I++] = 18;
+    Mesh.IdxData[I++] = 16; Mesh.IdxData[I++] = 18; Mesh.IdxData[I++] = 19;
+
+    // Bottom face
+    Mesh.VtxData[V++] = sml_vertex({-0.5f,-0.5f,-0.5f},{0.0f,-1.0f,0.0f},{0.0f,1.0f});
+    Mesh.VtxData[V++] = sml_vertex({ 0.5f,-0.5f,-0.5f},{0.0f,-1.0f,0.0f},{1.0f,1.0f});
+    Mesh.VtxData[V++] = sml_vertex({ 0.5f,-0.5f, 0.5f},{0.0f,-1.0f,0.0f},{1.0f,0.0f});
+    Mesh.VtxData[V++] = sml_vertex({-0.5f,-0.5f, 0.5f},{0.0f,-1.0f,0.0f},{0.0f,0.0f});
+    Mesh.IdxData[I++] = 20; Mesh.IdxData[I++] = 21; Mesh.IdxData[I++] = 22;
+    Mesh.IdxData[I++] = 20; Mesh.IdxData[I++] = 22; Mesh.IdxData[I++] = 23;
 
     return Mesh;
 }
 
 static sml_dynamic_array<sml_vector3>
-SmlInt_GetPositionsFromMesh(sml_mesh *Mesh)
+SmlInt_GetMeshPositions(sml_mesh<sml_vertex, sml_u32> Mesh)
 {
-    auto VertexCount = sml_u32(Mesh->VertexDataSize / sizeof(sml_vertex));
-    auto Positions   = sml_dynamic_array<sml_vector3>();
-
-    auto *VtxPtr = (sml_vertex*)Mesh->VertexData;
-
-    for(sml_u32 Idx = 0; Idx < VertexCount; Idx++)
+    auto Positions = sml_dynamic_array<sml_vector3>(Mesh.IndexCount());
+    for(sml_u32 VtxIdx = 0; VtxIdx < Mesh.IndexCount(); VtxIdx++)
     {
-        Positions.Push(VtxPtr[Idx].Position);
+        Positions.Push(Mesh.VtxData[VtxIdx].Position);
     }
 
     return Positions;

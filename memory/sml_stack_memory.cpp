@@ -105,7 +105,7 @@ SmlInt_PushMemory(size_t Size)
 }
 
 static void
-SmlInt_FreeMemory(sml_memory_block *Block)
+SmlInt_FreeMemory(sml_memory_block Block)
 {
     if(SmlMemory.FreeCount == SmlFreeListCount)
     {
@@ -113,14 +113,14 @@ SmlInt_FreeMemory(sml_memory_block *Block)
         return;
     }
 
-    SmlMemory.FreeList[SmlMemory.FreeCount++] = *Block;
+    SmlMemory.FreeList[SmlMemory.FreeCount++] = Block;
 }
 
 static sml_memory_block
-SmlInt_ReallocateMemory(sml_memory_block *OldBlock, sml_u32 Growth)
+SmlInt_ReallocateMemory(sml_memory_block OldBlock, sml_u32 Growth)
 {
-    sml_memory_block NewBlock = SmlInt_PushMemory(OldBlock->Size * Growth);
-    memcpy(NewBlock.Data, OldBlock->Data, OldBlock->Size);
+    sml_memory_block NewBlock = SmlInt_PushMemory(OldBlock.Size * Growth);
+    memcpy(NewBlock.Data, OldBlock.Data, OldBlock.Size);
     SmlInt_FreeMemory(OldBlock);
 
     return NewBlock;

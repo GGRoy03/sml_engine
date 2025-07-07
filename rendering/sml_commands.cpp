@@ -18,6 +18,11 @@ enum SmlCommand_Type
     SmlCommand_DrawInstanced,
 };
 
+enum SmlCommand_Flag
+{
+    SmlCommand_InstanceFreeHeap = 1 << 0,
+};
+
 struct sml_command_header
 {
     SmlCommand_Type Type;
@@ -36,17 +41,14 @@ struct sml_setup_command_material
 
 struct sml_setup_command_instance
 {
-    sml_mesh    *Mesh;
-    sml_u32      Material;
-    sml_instance Instance;
-};
+    sml_bit_field Flags;
 
-struct sml_setup_command_instanced
-{
-    sml_u32       Count;
-    sml_mesh     *Mesh;
-    sml_u32       Material;
-    sml_instanced Instanced;
+    sml_memory_block VtxHeapData;
+    sml_memory_block IdxHeapData;
+    sml_u32          IdxCount;
+
+    sml_u32        Material;
+    sml_instance   Instance;
 };
 
 struct sml_update_command_instance_data
@@ -126,16 +128,20 @@ Sml_SetupMaterial(sml_material_texture *MatTexArray, sml_u32 MatTexCount,
 }
 
 static sml_instance
-Sml_SetupInstance(sml_mesh *Mesh, sml_u32 Material)
+Sml_SetupInstance(sml_memory_block VtxHeap, sml_memory_block IdxHeap,
+                  sml_u32 IdxCount, sml_u32 Material, sml_bit_field Flags)
 {
     sml_command_header Header = {};
     Header.Type = SmlCommand_Instance;
     Header.Size = (sml_u32)sizeof(sml_setup_command_instance);
 
     sml_setup_command_instance Payload = {};
-    Payload.Material = Material;
-    Payload.Instance = (sml_instance)Renderer->Instances.Count;
-    Payload.Mesh     = Mesh;
+    Payload.Material    = Material;
+    Payload.Instance    = sml_instance(Renderer->Instances.Count);
+    Payload.VtxHeapData = VtxHeap;
+    Payload.IdxHeapData = IdxHeap;
+    Payload.Flags       = Flags;
+    Payload.IdxCount    = IdxCount;
 
     Sml_PushCommand(&Header, sizeof(sml_command_header));
     Sml_PushCommand(&Payload, Header.Size);
@@ -143,27 +149,6 @@ Sml_SetupInstance(sml_mesh *Mesh, sml_u32 Material)
     ++Renderer->Instances.Count;
 
     return Payload.Instance;
-}
-
-static sml_instanced
-Sml_SetupInstanced(sml_u32 Material, sml_mesh *Mesh, sml_u32 InstanceCount)
-{
-    sml_command_header Header = {};
-    Header.Type = SmlCommand_Instanced;
-    Header.Size = (sml_u32)sizeof(sml_setup_command_instanced);
-
-    sml_setup_command_instanced Payload = {};
-    Payload.Material  = Material;
-    Payload.Instanced = (sml_instanced)Renderer->Instances.Count;
-    Payload.Mesh      = Mesh;
-    Payload.Count     = InstanceCount;
-
-    Sml_PushCommand(&Header, sizeof(sml_command_header));
-    Sml_PushCommand(&Payload, Header.Size);
-
-    ++Renderer->Instances.Count;
-
-    return Payload.Instanced;
 }
 
 static void

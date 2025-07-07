@@ -119,22 +119,22 @@ SmlInt_BuildNavPolygons(sml_dynamic_array<sml_dynamic_array<sml_u32>> &Clusters,
 static sml_instance
 SmlInt_CreateNavMeshDebugInstance(sml_nav_poly *NavPolygons, sml_u32 Count)
 {
-    auto DebugVerts   = sml_dynamic_array<sml_vertex>(0);
-    auto DebugIndices = sml_dynamic_array<sml_u32>(0);
+    auto DebugVtx = sml_dynamic_array<sml_vertex_color>(0);
+    auto DebugIdx = sml_dynamic_array<sml_u32>(0);
 
     for(sml_u32 PolyIdx = 0; PolyIdx < Count; PolyIdx++)
     { 
         auto   *Poly = NavPolygons + PolyIdx;
-        sml_u32 Base = DebugVerts.Count;
+        sml_u32 Base = DebugVtx.Count;
 
         for(sml_u32 VtxIdx = 0; VtxIdx < Poly->Verts.Count; VtxIdx++)
         {
-            sml_vertex Vertex;
+            sml_vertex_color Vertex;
             Vertex.Position = Poly->Verts[VtxIdx];
             Vertex.Normal   = sml_vector3(0.0f, 0.0f, 0.0f);
-            Vertex.UV       = sml_vector2(0.0f, 0.0f);
+            Vertex.Color    = sml_vector3(0.0f, 1.0f, 0.0f);
 
-            DebugVerts.Push(Vertex);
+            DebugVtx.Push(Vertex);
         }
 
         auto Poly2D = sml_dynamic_array<sml_vector2>(Poly->Verts.Count);
@@ -147,23 +147,23 @@ SmlInt_CreateNavMeshDebugInstance(sml_nav_poly *NavPolygons, sml_u32 Count)
         auto Indices = SmlInt_Triangulate(Poly2D, SmlTriangulate_Fan);
         for(sml_u32 Idx = 0; Idx < Indices.Count; Idx++)
         {
-            DebugIndices.Push(Base + Indices[Idx]);
+            DebugIdx.Push(Base + Indices[Idx]);
         }
 
         Poly2D.Free();
     }
 
-    sml_mesh DebugMesh = {};
-    DebugMesh.VertexData     = DebugVerts.Values;
-    DebugMesh.VertexDataSize = DebugVerts.Count * sizeof(sml_vertex);
-    DebugMesh.IndexData      = DebugIndices.Values;
-    DebugMesh.IndexDataSize  = DebugIndices.Count * sizeof(sml_u32);
+    auto DebugMesh = 
+        sml_mesh<sml_vertex_color, sml_u32>(DebugVtx.Count, DebugIdx.Count);
 
-    sml_u32      Material      = Sml_SetupMaterial(nullptr, 0, 0, 0);
-    sml_instance DebugInstance = Sml_SetupInstance(&DebugMesh, Material);
+    memcpy(DebugMesh.VtxData, DebugVtx.Values, DebugMesh.VtxHeap.Size);
+    memcpy(DebugMesh.IdxData, DebugIdx.Values, DebugMesh.IdxHeap.Size);
 
-    DebugVerts.Free();
-    DebugIndices.Free();
+    sml_u32 Material = Sml_SetupMaterial(nullptr, 0, SmlShaderFeat_Color, 0);
+    sml_instance DebugInstance
+        = Sml_SetupInstance(DebugMesh.VtxHeap, DebugMesh.IdxHeap,
+                            DebugMesh.IndexCount(), Material,
+                            SmlCommand_InstanceFreeHeap);
 
     return DebugInstance;
 }

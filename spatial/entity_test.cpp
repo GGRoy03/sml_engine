@@ -13,8 +13,6 @@ enum SmlEntity_Type
     SmlEntity_Instanced,
 };
 
-struct sml_mesh;
-
 struct sml_entity_debug_data
 {
     sml_dynamic_array<sml_nav_poly> NavMesh;

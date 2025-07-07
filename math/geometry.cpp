@@ -213,6 +213,8 @@ SmlInt_BuildPolygonClusters(sml_walkable_list *List)
                 }
             }
         }
+
+        Clusters.Push(Cluster);
     }
 
     Visited.Free();
