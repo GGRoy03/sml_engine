@@ -34,7 +34,7 @@ struct sml_dynamic_array
         if(this->Count == this->Capacity)
         {
             this->Capacity *= 2;
-            this->Heap      = SmlInt_ReallocateMemory(&this->Heap, 2);
+            this->Heap      = SmlInt_ReallocateMemory(this->Heap, 2);
         }
 
         this->Values[Count++] = Value;
@@ -71,7 +71,7 @@ struct sml_dynamic_array
     {
         Sml_Assert(this->Values);
 
-        SmlInt_FreeMemory(&this->Heap);
+        SmlInt_FreeMemory(this->Heap);
 
         this->Values   = nullptr;
         this->Count    = 0;

@@ -92,9 +92,21 @@ struct sml_mesh
         this->IdxHeap = SmlInt_PushMemory(IdxCount * sizeof(I));
     }
 
+    inline sml_dynamic_array<sml_vector3> PackPositions()
+    {
+        auto Positions = sml_dynamic_array<sml_vector3>(this->VtxHeap.Size / sizeof(V));
+
+        for(sml_u32 Idx = 0; Idx < Positions.Capacity; Idx++)
+        {
+            Positions[Idx] = VtxHeap[Idx].Position;
+        }
+
+        return Positions;
+    } 
+
     inline sml_u32 IndexCount()
     {
-        return sml_u32(this->IdxDataSize / sizeof(I));
+        return sml_u32(this->IdxHeap.Size / sizeof(I));
     }
 };
 
@@ -107,7 +119,8 @@ Sml_GetCubeMesh()
     Mesh.VtxData = (sml_vertex*)Mesh.VtxHeap.Data;
     Mesh.IdxData = (sml_u32*)Mesh.IdxHeap.Data;
 
-    sml_u32 V, I = 0;
+    sml_u32 V = 0;
+    sml_u32 I = 0;
 
     // Front face
     Mesh.VtxData[V++] = sml_vertex({-0.5f,-0.5f,0.5f},{0.0f,0.0f,1.0f},{0.0f,1.0f});
@@ -158,16 +171,4 @@ Sml_GetCubeMesh()
     Mesh.IdxData[I++] = 20; Mesh.IdxData[I++] = 22; Mesh.IdxData[I++] = 23;
 
     return Mesh;
-}
-
-static sml_dynamic_array<sml_vector3>
-SmlInt_GetMeshPositions(sml_mesh<sml_vertex, sml_u32> Mesh)
-{
-    auto Positions = sml_dynamic_array<sml_vector3>(Mesh.IndexCount());
-    for(sml_u32 VtxIdx = 0; VtxIdx < Mesh.IndexCount(); VtxIdx++)
-    {
-        Positions.Push(Mesh.VtxData[VtxIdx].Position);
-    }
-
-    return Positions;
 }
