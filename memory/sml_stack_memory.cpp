@@ -9,6 +9,7 @@ struct sml_memory_block
     size_t Size;
 };
 
+// NOTE: OOP?
 struct sml_memory
 {
     void  *PushBase;
@@ -19,8 +20,8 @@ struct sml_memory
     sml_u32           FreeCount;
 };
 
-static constexpr size_t  SmlMemorySize    = Sml_Kilobytes(50);
-static constexpr sml_u32 SmlFreeListCount = 10;
+static constexpr size_t  SmlMemorySize   = Sml_Kilobytes(50);
+static constexpr sml_u32 SmlFreeListSize = 10;
 
 // ===================================
 // Global Variables
@@ -49,12 +50,7 @@ SmlInt_EndTemporaryRegion(size_t Marker)
     SmlMemory.PushSize = Marker;
 }
 
-// WARN:
-// 1) The behavior of this allocator is to always give V >= Size. If V is allocated
-// from a free block it might concatenate the old free-block with itself for
-// simplicity. We should not do that and instead carve the block into two and insert
-// one of them (SizeDifference) into the free list. It's not a bug per-say, but it's
-// not great behavior.
+// BUG: Underflow bug somewhere?
 
 static sml_memory_block
 SmlInt_PushMemory(size_t Size)
@@ -66,7 +62,7 @@ SmlInt_PushMemory(size_t Size)
         SmlMemory.PushSize     = 0;
         SmlMemory.FreeCount    = 0;
         SmlMemory.FreeList     = 
-            (sml_memory_block*)malloc(SmlFreeListCount * sizeof(sml_memory_block));
+            (sml_memory_block*)malloc(SmlFreeListSize * sizeof(sml_memory_block));
     }
 
     if(SmlMemory.PushSize + Size > SmlMemory.PushCapacity)
@@ -80,17 +76,30 @@ SmlInt_PushMemory(size_t Size)
 
         if(FreeBlock->Size >= Size)
         {
-            size_t SizeDifference = FreeBlock->Size - Size;
+            size_t OrigAt   = FreeBlock->At;
+            size_t OrigSize = FreeBlock->Size;
 
-            sml_memory_block Block = {};
-            Block.Data = (sml_u8*)SmlMemory.PushBase + FreeBlock->At;
-            Block.Size = Size + SizeDifference;
-            Block.At   = FreeBlock->At;
+            auto Last  = SmlMemory.FreeList[--SmlMemory.FreeCount];
+            *FreeBlock = Last;
 
-            SmlMemory.PushSize  += Size;
-            SmlMemory.FreeCount -= 1;
+            sml_memory_block Result = {};
+            Result.Data = (sml_u8*)SmlMemory.PushBase + FreeBlock->At;
+            Result.Size = Size;
+            Result.At   = OrigAt;
 
-            return Block;
+            size_t Diff = OrigSize - Size;
+            if(Diff > 0)
+            {
+                sml_memory_block Leftover = {};
+                Leftover.Data = (sml_u8*)SmlMemory.PushBase + Result.At + Size;
+                Leftover.Size = Diff;
+                Leftover.At   = Result.At + Size;
+
+                Sml_Assert(SmlMemory.FreeCount <= SmlFreeListSize);
+                SmlMemory.FreeList[SmlMemory.FreeCount++] = Leftover;
+            }
+
+            return Result;
         }
     }
 
@@ -107,7 +116,7 @@ SmlInt_PushMemory(size_t Size)
 static void
 SmlInt_FreeMemory(sml_memory_block Block)
 {
-    if(SmlMemory.FreeCount == SmlFreeListCount)
+    if(SmlMemory.FreeCount == SmlFreeListSize)
     {
         Sml_Assert(!"Free list is already full");
         return;
