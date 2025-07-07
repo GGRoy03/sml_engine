@@ -90,6 +90,9 @@ struct sml_mesh
     {
         this->VtxHeap = SmlInt_PushMemory(VtxCount * sizeof(V));
         this->IdxHeap = SmlInt_PushMemory(IdxCount * sizeof(I));
+
+        this->VtxData = (V*)this->VtxHeap.Data;
+        this->IdxData = (I*)this->IdxHeap.Data;
     }
 
     inline sml_dynamic_array<sml_vector3> PackPositions()
@@ -99,7 +102,7 @@ struct sml_mesh
 
         for(sml_u32 Idx = 0; Idx < Positions.Capacity; Idx++)
         {
-            Positions[Idx] = this->VtxData[Idx].Position;
+            Positions.Push(this->VtxData[Idx].Position);
         }
 
         return Positions;

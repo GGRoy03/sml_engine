@@ -48,6 +48,21 @@ static sml_instance
 SmlInt_CreateNavMeshDebugInstance(sml_nav_poly *NavPolygons,
                                   sml_u32       Count);
 
+// WARN:
+// 1) The UI is ugly/garbage/not useful
+// 2) Not the biggest fan of the code
+// 3) Should work with entities OOTB
+// 4) Would be nice to visualize meshes off of disk.
+
+// NOTE: If we have a central mesh storage, what we could do is:
+// query into that list for this UI, then it's easier to build nav-mesh geometry
+// groups to the process into the nav-mesh builder such that we can then visualize the
+// result, by hiding the other geometries and showing the debug nav-mesh. It 
+// would also solve a lot of ugly codes. But how do you even do a templated storage?
+// Uhm, does my template increase size? If not, then it's fine. I think it would
+// make everything easier. That's the only data we need anyway, well except constants
+// which are trivial to add into the UI>
+
 static void
 SmlDebug_ShowNavMeshUI()
 {
@@ -60,10 +75,17 @@ SmlDebug_ShowNavMeshUI()
         Manager.IsInitialized = true;
     }
 
-    ImGui::PushStyleColor(ImGuiCol_FrameBg,        IM_COL32(30, 30, 30, 255));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(40, 40, 40, 255));
+    ImGuiWindowFlags Flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse;
 
-    ImGui::Text("New Nav‑Mesh:"); 
+    ImGui::PushStyleColor(ImGuiCol_WindowBg,       IM_COL32(20 , 20, 20,255));
+    ImGui::PushStyleColor(ImGuiCol_Header,         IM_COL32(255,140,  0,200));
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered,  IM_COL32(255,165,  0,255));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg,        IM_COL32(30 , 30, 30,255));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(40 , 40, 40,255));
+
+    ImGui::Begin("Nav Mesh Debug", nullptr, Flags);
+
+    ImGui::Text("New Nav Mesh:"); 
     ImGui::SameLine();
     ImGui::Combo("##MeshTypeCombo", (sml_i32*)&Manager.CreateMeshType,
                  Manager.MeshTypeNames, SmlDebugNavMesh_Count);
@@ -98,18 +120,6 @@ SmlDebug_ShowNavMeshUI()
             break;
         }
     }
-
-    ImGui::PopStyleColor(2);
-
-    ImGuiWindowFlags Flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse;
-
-    ImGui::PushStyleColor(ImGuiCol_WindowBg,       IM_COL32(20 , 20, 20,255));
-    ImGui::PushStyleColor(ImGuiCol_Header,         IM_COL32(255,140,  0,200));
-    ImGui::PushStyleColor(ImGuiCol_HeaderHovered,  IM_COL32(255,165,  0,255));
-    ImGui::PushStyleColor(ImGuiCol_FrameBg,        IM_COL32(30 , 30, 30,255));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(40 , 40, 40,255));
-
-    ImGui::Begin("Nav‑Mesh Debug", nullptr, Flags);
 
     for (sml_u32 Idx = 0; Idx < Manager.NavMeshes.Count; ++Idx)
     {
@@ -299,6 +309,8 @@ SmlInt_CreateNavMeshDebugInstance(sml_nav_poly *NavPolygons, sml_u32 Count)
         = Sml_SetupInstance(DebugMesh.VtxHeap, DebugMesh.IdxHeap,
                             DebugMesh.IndexCount(), Material,
                             SmlCommand_InstanceFreeHeap);
+
+    Sml_UpdateInstance(sml_vector3(0.0f, 0.0f, 0.0f), DebugInstance); // NOTE: Position?
 
     return DebugInstance;
 }
