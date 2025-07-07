@@ -13,18 +13,10 @@ enum SmlEntity_Type
     SmlEntity_Instanced,
 };
 
-struct sml_entity_debug_data
-{
-    sml_dynamic_array<sml_nav_poly> NavMesh;
-    sml_instance                    NavMeshInstance;
-    bool                            HasNavMesh;
-};
-
 struct sml_entity
 {
     // Core-data
     SmlEntity_Type Type;
-    sml_mesh      *Mesh;
     sml_vector3    Position;
     sml_u32        Material;
 
@@ -38,17 +30,14 @@ struct sml_entity
         sml_instance  Instance;
         sml_instanced Instanced;
     } Data;
-
-    // Debug data
-    sml_entity_debug_data Debug;
 };
 
 struct sml_entity_manager
 {
-    sml_entity     *Pool;
-    sml_entity_id  *FreeList;
-    sml_u32         Capacity;
-    sml_u32         FreeCount;
+    sml_entity    *Pool;
+    sml_entity_id *FreeList;
+    sml_u32        Capacity;
+    sml_u32        FreeCount;
 };
 
 // ===================================
@@ -56,10 +45,6 @@ struct sml_entity_manager
 // ===================================
 
 static sml_entity_manager EntityManager = {};
-
-// ===================================
-// Internal Helpers
-// ===================================
 
 static inline sml_entity*
 SmlInt_GetEntityPointer(sml_u32 Id)
@@ -90,8 +75,8 @@ SmlInt_EnsurePool()
 // ===================================
 
 static sml_entity_id
-Sml_CreateEntity(sml_mesh *Mesh, sml_vector3 Position, sml_u32 Material,
-                 const char *Identifier)
+Sml_CreateEntity(sml_memory_block VtxHeap, sml_memory_block IdxHeap, sml_u32 IdxCount,
+                 sml_vector3 Position, sml_u32 Material, const char *Identifier)
 {
     SmlInt_EnsurePool();
 
@@ -106,17 +91,12 @@ Sml_CreateEntity(sml_mesh *Mesh, sml_vector3 Position, sml_u32 Material,
     sml_entity   *E   = SmlInt_GetEntityPointer(Idx);
 
     E->Type          = SmlEntity_Instance;
-    E->Mesh          = Mesh;
     E->Position      = Position;
     E->Material      = Material;
     E->Alive         = true;
-    E->Data.Instance = Sml_SetupInstance(Mesh, Material);
-
+    E->Data.Instance = Sml_SetupInstance(VtxHeap, IdxHeap, IdxCount, Material,
+                                         SmlCommand_InstanceFreeHeap);
     strncpy(E->Name, Identifier, 63);
-
-    E->Debug.HasNavMesh      = false;
-    E->Debug.NavMesh         = {};
-    E->Debug.NavMeshInstance = sml_instance(0);
 
     Sml_UpdateInstance(E->Position, E->Data.Instance);
 
@@ -171,7 +151,7 @@ Sml_DrawEntity(sml_entity_id EntityId)
 }
 
 static void
-Sml_ShowEntityDebugUI()
+SmlDebug_ShowEntityUI()
 {
     ImGuiWindowFlags Flags = ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoCollapse;
 
@@ -212,36 +192,8 @@ Sml_ShowEntityDebugUI()
             ImGui::PopItemWidth();
             ImGui::NextColumn();
 
-            ImGui::Text("Nav-Mesh"); ImGui::NextColumn();
-            if (ImGui::Button("Generate##navmesh", ImVec2(-1,0)))
-            {
-                // TODO: This crashes, debug.
-                if(!E->Debug.HasNavMesh)
-                {
-                    sml_dynamic_array<sml_vector3> Points 
-                        = SmlInt_GetPositionsFromMesh(E->Mesh);
-
-                    sml_u32 IdxCount = sml_u32(E->Mesh->IndexDataSize/sizeof(sml_u32));
-                    E->Debug.NavMesh = 
-                        Sml_BuildNavMesh(Points.Values, E->Mesh->IndexData, IdxCount,
-                                         10.0f);
-
-                    E->Debug.NavMeshInstance =
-                        SmlInt_CreateNavMeshDebugInstance(E->Debug.NavMesh.Values,
-                                                          E->Debug.NavMesh.Count);
-
-                    Points.Free();
-                    E->Debug.HasNavMesh = true;
-                }
-            }
-
             ImGui::NextColumn();
             ImGui::Columns(1);
-        }
-
-        if(E->Debug.HasNavMesh)
-        {
-            Sml_DrawInstance(E->Debug.NavMeshInstance);
         }
     }
 

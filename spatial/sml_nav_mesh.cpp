@@ -7,9 +7,81 @@ struct sml_nav_poly
     sml_dynamic_array<sml_vector3> Verts;
 };
 
+struct sml_navmesh_debug
+{
+    sml_instance Handle;
+    char         Name[64];
+    bool         Show;
+    bool         Loaded;
+};
+
+struct sml_navmesh_debug_manager
+{
+    sml_dynamic_array<sml_navmesh_debug> NavMeshes;
+
+    bool IsInitialized;
+};
+
 // ===================================
 // Internal Helpers
 // ===================================
+
+static void
+SmlDebug_ShowNavMeshUI()
+{
+    static sml_navmesh_debug_manager NavMeshManager;
+
+    if(!NavMeshManager.IsInitialized)
+    {
+        NavMeshManager.NavMeshes = sml_dynamic_array<sml_navmesh_debug>(0);
+
+        NavMeshManager.IsInitialized = true;
+    }
+
+    ImGuiWindowFlags Flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse;
+
+    ImGui::PushStyleColor(ImGuiCol_WindowBg,       IM_COL32(20 , 20, 20,255));
+    ImGui::PushStyleColor(ImGuiCol_Header,         IM_COL32(255,140,  0,200));
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered,  IM_COL32(255,165,  0,255));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg,        IM_COL32(30 , 30, 30,255));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(40 , 40, 40,255));
+
+    ImGui::Begin("Nav‑Mesh Debug", nullptr, Flags);
+
+    for (sml_u32 Idx = 0; Idx < NavMeshManager.NavMeshes.Count; ++Idx)
+    {
+        auto *NavMesh = NavMeshManager.NavMeshes.Values + Idx;
+
+        if(!NavMesh->Loaded) continue;
+
+        char Header[64];
+        sprintf_s(Header, "%s##nm%u", NavMesh->Name, Idx);
+        if (ImGui::CollapsingHeader(Header, ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::Columns(2, nullptr, false);
+            ImGui::SetColumnWidth(0, 100);
+
+            ImGui::Text("Name");        ImGui::NextColumn();
+            ImGui::Text(NavMesh->Name); ImGui::NextColumn();
+
+            ImGui::Text("Visible");
+            ImGui::NextColumn();
+
+            ImGui::Checkbox("##ShowMesh", &NavMesh->Show);
+            ImGui::NextColumn();
+
+            ImGui::Columns(1);
+        }
+
+        if (NavMesh->Show)
+        {
+            Sml_DrawInstance(NavMesh->Handle);
+        }
+    }
+
+    ImGui::End();
+    ImGui::PopStyleColor(5);
+}
 
 // WARN: 
 // 1) Leaks a lot of memory!
