@@ -7,6 +7,14 @@ struct sml_nav_poly
     sml_dynamic_array<sml_vector3> Verts;
 };
 
+enum SmlDebugNavMesh_MeshType : sml_u32
+{
+    SmlDebugNavMesh_Cube,
+    SmlDebugNavMesh_Custom,
+
+    SmlDebugNavMesh_Count,
+};
+
 struct sml_navmesh_debug
 {
     sml_instance Handle;
@@ -19,6 +27,9 @@ struct sml_navmesh_debug_manager
 {
     sml_dynamic_array<sml_navmesh_debug> NavMeshes;
 
+    SmlDebugNavMesh_MeshType CreateMeshType;
+    const char *MeshTypeNames[SmlDebugNavMesh_Count] = {"Cube", "Custom"};
+
     bool IsInitialized;
 };
 
@@ -26,17 +37,69 @@ struct sml_navmesh_debug_manager
 // Internal Helpers
 // ===================================
 
+
+static sml_dynamic_array<sml_nav_poly>
+Sml_BuildNavMesh(sml_vector3 *Points,
+                 sml_u32     *Indices,
+                 sml_u32      IdxCount,
+                 sml_f32      SlopeDegree);
+
+static sml_instance
+SmlInt_CreateNavMeshDebugInstance(sml_nav_poly *NavPolygons,
+                                  sml_u32       Count);
+
 static void
 SmlDebug_ShowNavMeshUI()
 {
-    static sml_navmesh_debug_manager NavMeshManager;
+    static sml_navmesh_debug_manager Manager;
 
-    if(!NavMeshManager.IsInitialized)
+    if(!Manager.IsInitialized)
     {
-        NavMeshManager.NavMeshes = sml_dynamic_array<sml_navmesh_debug>(0);
+        Manager.NavMeshes = sml_dynamic_array<sml_navmesh_debug>(0);
 
-        NavMeshManager.IsInitialized = true;
+        Manager.IsInitialized = true;
     }
+
+    ImGui::PushStyleColor(ImGuiCol_FrameBg,        IM_COL32(30, 30, 30, 255));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(40, 40, 40, 255));
+
+    ImGui::Text("New Nav‑Mesh:"); 
+    ImGui::SameLine();
+    ImGui::Combo("##MeshTypeCombo", (sml_i32*)&Manager.CreateMeshType,
+                 Manager.MeshTypeNames, SmlDebugNavMesh_Count);
+    ImGui::SameLine();
+    if (ImGui::Button("Instantiate"))
+    {
+        switch(Manager.CreateMeshType)
+        {
+
+        case SmlDebugNavMesh_Cube:
+        {
+            sml_navmesh_debug Debug = {};
+            memcpy(Debug.Name, "Cube", 5);
+
+            auto Mesh   = Sml_GetCubeMesh();
+            auto Points = Mesh.PackPositions();
+            auto IdxCnt = Mesh.IndexCount();
+
+            auto NavMesh =
+                Sml_BuildNavMesh(Points.Values, Mesh.IdxData, IdxCnt, 10.0f);
+            Debug.Handle = 
+                SmlInt_CreateNavMeshDebugInstance(NavMesh.Values, NavMesh.Count);
+
+            Points.Free();
+
+            Debug.Loaded = true;
+            Debug.Show   = true;
+            Manager.NavMeshes.Push(Debug);
+        } break;
+
+        default:
+            break;
+        }
+    }
+
+    ImGui::PopStyleColor(2);
 
     ImGuiWindowFlags Flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse;
 
@@ -48,9 +111,9 @@ SmlDebug_ShowNavMeshUI()
 
     ImGui::Begin("Nav‑Mesh Debug", nullptr, Flags);
 
-    for (sml_u32 Idx = 0; Idx < NavMeshManager.NavMeshes.Count; ++Idx)
+    for (sml_u32 Idx = 0; Idx < Manager.NavMeshes.Count; ++Idx)
     {
-        auto *NavMesh = NavMeshManager.NavMeshes.Values + Idx;
+        auto *NavMesh = Manager.NavMeshes.Values + Idx;
 
         if(!NavMesh->Loaded) continue;
 

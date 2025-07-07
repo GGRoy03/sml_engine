@@ -94,11 +94,12 @@ struct sml_mesh
 
     inline sml_dynamic_array<sml_vector3> PackPositions()
     {
-        auto Positions = sml_dynamic_array<sml_vector3>(this->VtxHeap.Size / sizeof(V));
+        auto Positions = 
+            sml_dynamic_array<sml_vector3>(sml_u32(this->VtxHeap.Size / sizeof(V)));
 
         for(sml_u32 Idx = 0; Idx < Positions.Capacity; Idx++)
         {
-            Positions[Idx] = VtxHeap[Idx].Position;
+            Positions[Idx] = this->VtxData[Idx].Position;
         }
 
         return Positions;
