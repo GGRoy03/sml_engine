@@ -8,7 +8,8 @@ typedef uint64_t sml_u64;
 
 typedef int sml_i32;
 
-typedef float sml_f32;
+typedef float  sml_f32;
+typedef double sml_f64;
 
 #define Sml_Unused(x) (void)(x)
 #define Sml_Assert(cond) do { if (!(cond)) __debugbreak(); } while (0)
