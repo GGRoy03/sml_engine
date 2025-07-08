@@ -1,3 +1,9 @@
+// ===========================================
+// Type Definitions
+// ==========================================
+
+enum class sml_mesh_id : sml_u32 {};
+
 struct sml_vertex
 {
     sml_vector3 Position;
@@ -17,63 +23,6 @@ struct sml_vertex_color
     sml_vector3 Position;
     sml_vector3 Normal;
     sml_vector3 Color;
-};
-
-// NOTE: If GetCubeMesh works, remove this.
-static sml_vertex CubeVertices[] =
-{
-    // Front face (Z+)
-    {{-0.5f, -0.5f,  0.5f}, { 0.0f,  0.0f,  1.0f}, {0.0f, 1.0f}},
-    {{ 0.5f, -0.5f,  0.5f}, { 0.0f,  0.0f,  1.0f}, {1.0f, 1.0f}},
-    {{ 0.5f,  0.5f,  0.5f}, { 0.0f,  0.0f,  1.0f}, {1.0f, 0.0f}},
-    {{-0.5f,  0.5f,  0.5f}, { 0.0f,  0.0f,  1.0f}, {0.0f, 0.0f}},
-
-    // Back face (Z-)
-    {{ 0.5f, -0.5f, -0.5f}, { 0.0f,  0.0f, -1.0f}, {0.0f, 1.0f}},
-    {{-0.5f, -0.5f, -0.5f}, { 0.0f,  0.0f, -1.0f}, {1.0f, 1.0f}},
-    {{-0.5f,  0.5f, -0.5f}, { 0.0f,  0.0f, -1.0f}, {1.0f, 0.0f}},
-    {{ 0.5f,  0.5f, -0.5f}, { 0.0f,  0.0f, -1.0f}, {0.0f, 0.0f}},
-
-    // Left face (X-)
-    {{-0.5f, -0.5f, -0.5f}, {-1.0f,  0.0f,  0.0f}, {0.0f, 1.0f}},
-    {{-0.5f, -0.5f,  0.5f}, {-1.0f,  0.0f,  0.0f}, {1.0f, 1.0f}},
-    {{-0.5f,  0.5f,  0.5f}, {-1.0f,  0.0f,  0.0f}, {1.0f, 0.0f}},
-    {{-0.5f,  0.5f, -0.5f}, {-1.0f,  0.0f,  0.0f}, {0.0f, 0.0f}},
-
-    // Right face (X+)
-    {{ 0.5f, -0.5f,  0.5f}, { 1.0f,  0.0f,  0.0f}, {0.0f, 1.0f}},
-    {{ 0.5f, -0.5f, -0.5f}, { 1.0f,  0.0f,  0.0f}, {1.0f, 1.0f}},
-    {{ 0.5f,  0.5f, -0.5f}, { 1.0f,  0.0f,  0.0f}, {1.0f, 0.0f}},
-    {{ 0.5f,  0.5f,  0.5f}, { 1.0f,  0.0f,  0.0f}, {0.0f, 0.0f}},
-
-    // Top face (Y+)
-    {{-0.5f,  0.5f,  0.5f}, { 0.0f,  1.0f,  0.0f}, {0.0f, 1.0f}},
-    {{ 0.5f,  0.5f,  0.5f}, { 0.0f,  1.0f,  0.0f}, {1.0f, 1.0f}},
-    {{ 0.5f,  0.5f, -0.5f}, { 0.0f,  1.0f,  0.0f}, {1.0f, 0.0f}},
-    {{-0.5f,  0.5f, -0.5f}, { 0.0f,  1.0f,  0.0f}, {0.0f, 0.0f}},
-
-    // Bottom face (Y-)
-    {{-0.5f, -0.5f, -0.5f}, { 0.0f, -1.0f,  0.0f}, {0.0f, 1.0f}},
-    {{ 0.5f, -0.5f, -0.5f}, { 0.0f, -1.0f,  0.0f}, {1.0f, 1.0f}},
-    {{ 0.5f, -0.5f,  0.5f}, { 0.0f, -1.0f,  0.0f}, {1.0f, 0.0f}},
-    {{-0.5f, -0.5f,  0.5f}, { 0.0f, -1.0f,  0.0f}, {0.0f, 0.0f}},
-};
-
-// NOTE: If GetCubeMesh works, remove this.
-static u32 CubeIndices[] =
-{
-    // Front face
-    0, 1, 2,   0, 2, 3,
-    // Back face
-    4, 5, 6,   4, 6, 7,
-    // Left face
-    8, 9, 10,  8, 10, 11,
-    // Right face
-    12, 13, 14, 12, 14, 15,
-    // Top face
-    16, 17, 18, 16, 18, 19,
-    // Bottom face
-    20, 21, 22, 20, 22, 23
 };
 
 template <typename V, typename I>
@@ -108,11 +57,70 @@ struct sml_mesh
         return Positions;
     } 
 
+    inline sml_u32 VertexCount()
+    {
+        return sml_u32(this->VtxHeap.Size / sizeof(V));
+    }
+
     inline sml_u32 IndexCount()
     {
         return sml_u32(this->IdxHeap.Size / sizeof(I));
     }
+
 };
+
+struct sml_mesh_record
+{
+    // Meta-data
+    char Name[32];
+
+    // Mesh-data
+    sml_memory_block VtxHeap;
+    sml_memory_block IdxHeap;
+};
+
+// ===========================================
+// Global Variables
+// ==========================================
+
+// NOTE: Everything ends up being a global...
+sml_slot_map<sml_mesh_record, sml_u32> SmlMeshes;
+
+// ===========================================
+// User API
+// ==========================================
+
+template <typename V, typename I>
+static sml_mesh_id
+Sml_RecordMesh(sml_mesh<V, I> Mesh, const char* Name)
+{
+    sml_mesh_record Record = {};
+    Record.VtxHeap = Mesh.VtxHeap;
+    Record.IdxHeap = Mesh.IdxHeap;
+
+    size_t NameLength = strlen(Name);
+    if(NameLength > 31) NameLength = 31;
+    memcpy(Record.Name, Name, NameLength);
+
+    sml_mesh_id Id = sml_mesh_id(SmlMeshes.Emplace(Record));
+
+    return Id;
+}
+
+template <typename V, typename I>
+static sml_mesh<V, I>
+Sml_GetMesh(sml_mesh_id Id)
+{
+    sml_mesh_record Record = SmlMeshes[sml_u32(Id)];
+
+    sml_mesh<V, I> Mesh = {};
+    Mesh.VtxHeap = Record.VtxHeap;
+    Mesh.IdxHeap = Record.IdxHeap;
+    Mesh.VtxData = (V*)Mesh.VtxHeap.Data;
+    Mesh.IdxData = (I*)Mesh.IdxHeap.Data;
+
+    return Mesh;
+}
 
 static sml_mesh<sml_vertex, sml_u32>
 Sml_GetCubeMesh()

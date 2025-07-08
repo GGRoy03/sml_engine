@@ -2,6 +2,9 @@
 // Type Definitions
 // ===================================
 
+// NOTE: Generation counter on blocks for easier debugging?
+// I think this way of doing things can easily go out of control.
+
 struct sml_memory_block
 {
     void  *Data;

@@ -1,5 +1,5 @@
 // ===========================================
-// Internal Functions.
+// Type Definitions
 // ==========================================
 
 struct sml_window
@@ -11,24 +11,19 @@ struct sml_window
 
 enum { SML_KEYBOARD_KEY_COUNT = 256 };
 
-typedef struct
+struct sml_game_button_state
 {
     bool    EndedDown;
     sml_u32 HalfTransitionCount;
-} sml_game_button_state;
+};
 
-typedef struct
+struct sml_game_controller_input
 {
     sml_game_button_state Buttons[SML_KEYBOARD_KEY_COUNT];
 
     sml_i32               MouseX, MouseY, MouseZ;
     sml_game_button_state MouseButtons[5];
-} sml_game_controller_input;
-
-// ===========================================
-// Platform Agnostic helpers
-// ==========================================
-
+};
 
 
 // ===========================================

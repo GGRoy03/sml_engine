@@ -17,6 +17,7 @@ typedef float sml_f32;
 #define Sml_Megabytes(Amount) (Kilobytes(Amount) * 1024)
 #define Sml_Gigabytes(Amount) (Megabytes(Amount) * 1024)
 
+// WARN: Why is this here?
 enum class sml_instance  : sml_u32 {};
 enum class sml_instanced : sml_u32 {};
 
@@ -39,6 +40,7 @@ enum class sml_instanced : sml_u32 {};
 // Data structures
 #include "data_structures/sml_dynamic_array.cpp"
 #include "data_structures/sml_hashmap.cpp"
+#include "data_structures/sml_slot_map.cpp"
 
 // Math
 #include "math/vector.cpp"
