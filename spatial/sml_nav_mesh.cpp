@@ -48,113 +48,68 @@ static sml_instance
 SmlInt_CreateNavMeshDebugInstance(sml_nav_poly *NavPolygons,
                                   sml_u32       Count);
 
-// WARN:
-// 1) The UI is ugly/garbage/not useful
-// 2) Not the biggest fan of the code
-// 3) Should work with entities OOTB
-// 4) Would be nice to visualize meshes off of disk.
-
-// NOTE: If we have a central mesh storage, what we could do is:
-// query into that list for this UI, then it's easier to build nav-mesh geometry
-// groups to the process into the nav-mesh builder such that we can then visualize the
-// result, by hiding the other geometries and showing the debug nav-mesh. It 
-// would also solve a lot of ugly codes. But how do you even do a templated storage?
-// Uhm, does my template increase size? If not, then it's fine. I think it would
-// make everything easier. That's the only data we need anyway, well except constants
-// which are trivial to add into the UI>
-
-static void
-SmlDebug_ShowNavMeshUI()
+// TODO: Complete the mesh meta-data section
+static void SmlDebug_NavMeshUI()
 {
-    static sml_navmesh_debug_manager Manager;
-
-    if(!Manager.IsInitialized)
-    {
-        Manager.NavMeshes = sml_dynamic_array<sml_navmesh_debug>(0);
-
-        Manager.IsInitialized = true;
-    }
-
     ImGuiWindowFlags Flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse;
 
-    ImGui::PushStyleColor(ImGuiCol_WindowBg,       IM_COL32(20 , 20, 20,255));
-    ImGui::PushStyleColor(ImGuiCol_Header,         IM_COL32(255,140,  0,200));
-    ImGui::PushStyleColor(ImGuiCol_HeaderHovered,  IM_COL32(255,165,  0,255));
-    ImGui::PushStyleColor(ImGuiCol_FrameBg,        IM_COL32(30 , 30, 30,255));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(40 , 40, 40,255));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg        , IM_COL32(20, 20, 20, 255));
+    ImGui::PushStyleColor(ImGuiCol_Header          , IM_COL32(255, 140, 0, 200));
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered   , IM_COL32(255, 160, 0, 255));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg         , IM_COL32(30, 30, 30, 255));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered  , IM_COL32(255, 140, 0, 100));
+    ImGui::PushStyleColor(ImGuiCol_Text            , IM_COL32(255, 255, 255, 255));
+    ImGui::PushStyleColor(ImGuiCol_Border          , IM_COL32(255, 140, 0, 100));
+    ImGui::PushStyleColor(ImGuiCol_Separator       , IM_COL32(255, 140, 0, 100));
 
-    ImGui::Begin("Nav Mesh Debug", nullptr, Flags);
+    ImGui::Begin("Nav‑Mesh Builder##NavMeshUI", nullptr, Flags);
 
-    ImGui::Text("New Nav Mesh:"); 
-    ImGui::SameLine();
-    ImGui::Combo("##MeshTypeCombo", (sml_i32*)&Manager.CreateMeshType,
-                 Manager.MeshTypeNames, SmlDebugNavMesh_Count);
-    ImGui::SameLine();
-    if (ImGui::Button("Instantiate"))
+    float LeftWidth = 200.0f;
+    ImGui::BeginChild("##MeshListPanel", ImVec2(LeftWidth, 0), true);
+    ImGui::Text("Meshes");
+    ImGui::Separator();
+
+    ImGui::BeginChild("##MeshListScroll", ImVec2(0, 250), false);
+    u32 Idx = SmlMeshes.Head;
+    while (Idx != sml_slot_map<sml_mesh_record, u32>::Invalid)
     {
-        switch(Manager.CreateMeshType)
+        auto* Rec = SmlMeshes.Data + Idx;
+        if (ImGui::Selectable(Rec->Name, false))
         {
-
-        case SmlDebugNavMesh_Cube:
-        {
-            sml_navmesh_debug Debug = {};
-            memcpy(Debug.Name, "Cube", 5);
-
-            auto Mesh   = Sml_GetCubeMesh();
-            auto Points = Mesh.PackPositions();
-            auto IdxCnt = Mesh.IndexCount();
-
-            auto NavMesh =
-                Sml_BuildNavMesh(Points.Values, Mesh.IdxData, IdxCnt, 10.0f);
-            Debug.Handle = 
-                SmlInt_CreateNavMeshDebugInstance(NavMesh.Values, NavMesh.Count);
-
-            Points.Free();
-
-            Debug.Loaded = true;
-            Debug.Show   = true;
-            Manager.NavMeshes.Push(Debug);
-        } break;
-
-        default:
-            break;
         }
+        Idx = SmlMeshes.Next[Idx];
     }
+    ImGui::EndChild();
 
-    for (sml_u32 Idx = 0; Idx < Manager.NavMeshes.Count; ++Idx)
-    {
-        auto *NavMesh = Manager.NavMeshes.Values + Idx;
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Text("Mesh Metadata");
+    ImGui::BeginChild("##MeshMetaLeft", ImVec2(0, 0), false);
+    ImGui::EndChild();
+    ImGui::EndChild();
 
-        if(!NavMesh->Loaded) continue;
+    ImGui::SameLine();
 
-        char Header[64];
-        sprintf_s(Header, "%s##nm%u", NavMesh->Name, Idx);
-        if (ImGui::CollapsingHeader(Header, ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            ImGui::Columns(2, nullptr, false);
-            ImGui::SetColumnWidth(0, 100);
+    ImGui::BeginChild("##GroupAndMetaPanel", ImVec2(0, 0), true);
 
-            ImGui::Text("Name");        ImGui::NextColumn();
-            ImGui::Text(NavMesh->Name); ImGui::NextColumn();
+    ImGui::Text("Groups");
+    ImGui::BeginChild("##GroupBuilder", ImVec2(0, 200), true);
+    ImGui::TextWrapped("Drag meshes here to form a group");
+    ImGui::EndChild();
 
-            ImGui::Text("Visible");
-            ImGui::NextColumn();
+    ImGui::Spacing();
 
-            ImGui::Checkbox("##ShowMesh", &NavMesh->Show);
-            ImGui::NextColumn();
 
-            ImGui::Columns(1);
-        }
-
-        if (NavMesh->Show)
-        {
-            Sml_DrawInstance(NavMesh->Handle);
-        }
-    }
+    ImGui::Text("Group Metadata");
+    ImGui::Separator();
+    ImGui::BeginChild("##GroupMeta", ImVec2(0, 0), false);
+    ImGui::EndChild();
+    ImGui::EndChild();
 
     ImGui::End();
-    ImGui::PopStyleColor(5);
+    ImGui::PopStyleColor(8);
 }
+
 
 // WARN: 
 // 1) Leaks a lot of memory!

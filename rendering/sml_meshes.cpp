@@ -94,6 +94,12 @@ template <typename V, typename I>
 static sml_mesh_id
 Sml_RecordMesh(sml_mesh<V, I> Mesh, const char* Name)
 {
+    // NOTE: Not really sure.
+    if(!SmlMeshes.Data && !SmlMeshes.FreeList)
+    {
+        SmlMeshes = sml_slot_map<sml_mesh_record, sml_u32>(10);
+    }
+
     sml_mesh_record Record = {};
     Record.VtxHeap = Mesh.VtxHeap;
     Record.IdxHeap = Mesh.IdxHeap;

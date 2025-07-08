@@ -27,7 +27,7 @@ struct sml_dynamic_array
         }
     }
 
-    void Push(T Value)
+    inline void Push(T Value)
     {
         Sml_Assert(this->Values);
 
@@ -40,23 +40,7 @@ struct sml_dynamic_array
         this->Values[Count++] = Value;
     }
 
-    T* PushNext()
-    {
-        Sml_Assert(this->Values);
-
-        if(this->Count == this->Capacity)
-        {
-            this->Capacity *= 2;
-            this->Heap     = SmlInt_ReallocateMemory(&this->Heap, 2);
-        }
-
-        T *Ptr = this->Values + this->Count;
-        this->Count++;
-
-        return Ptr;
-    }
-
-    T Pop()
+    inline T Pop()
     {
         Sml_Assert(this->Values);
         Sml_Assert(this->Count > 0);
@@ -67,7 +51,7 @@ struct sml_dynamic_array
         return Value;
     }
 
-    void Free()
+    inline void Free()
     {
         Sml_Assert(this->Values);
 
@@ -78,7 +62,12 @@ struct sml_dynamic_array
         this->Capacity = 0;
     }
 
-    void Reset()
+    inline void SwapErase(sml_u32 EraseAt)
+    {
+        this->Values[EraseAt] = this->Values[--this->Count];
+    }
+
+    inline void Reset()
     {
         this->Count = 0;
     }
@@ -95,4 +84,7 @@ struct sml_dynamic_array
         Sml_Assert(Index < this->Count);
         return this->Values[Index];
     }
+
+    T* begin() { return this->Values; }
+    T* end()   { return this->Values + this->Count; }
 };
