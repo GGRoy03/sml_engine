@@ -1,7 +1,3 @@
-// ===================================
-// Type Definitions
-// ===================================
-
 #include <d3d11.h>
 #include <d3dcompiler.h>
 #include <dxgi.h>
@@ -10,7 +6,14 @@
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "D3DCompiler.lib")
 
-struct sml_dx11_context
+namespace SML 
+{
+
+// ===================================
+// Type Definitions
+// ===================================
+
+struct dx11_context
 {
     ID3D11Device           *Device;
     ID3D11DeviceContext    *Context;
@@ -29,7 +32,7 @@ struct sml_dx11_context
 //  Global variables
 // ===================================
 
-static sml_dx11_context Dx11;
+static dx11_context Dx11;
 
 // ===================================
 // Helper Functions
@@ -39,7 +42,7 @@ static sml_dx11_context Dx11;
 // Directx11 Files
 // ===================================
 
-#include "sml_dx11_playback.cpp"
+#include "dx11_playback.cpp"
 
 // ===================================
 // API Implementation
@@ -50,7 +53,7 @@ static sml_dx11_context Dx11;
 // 2) Uses malloc for the renderer allocation
 
 static void
-SmlDx11_Initialize(sml_window Window)
+Dx11_Initialize(sml_window Window)
 {
     DXGI_SWAP_CHAIN_DESC SDesc = {};
     SDesc.BufferCount          = 2;
@@ -124,25 +127,29 @@ SmlDx11_Initialize(sml_window Window)
 
     Sml_Assert(SUCCEEDED(Status));
 
+    using namespace SML;
+
     auto *DX11Renderer     = (sml_renderer*)malloc(sizeof(sml_renderer));
-    DX11Renderer->Playback = SmlDx11_Playback;
+    DX11Renderer->Playback = SML::Dx11_Playback;
 
     DX11Renderer->Materials.Count      = 0;
-    DX11Renderer->Materials.Data       = malloc(sizeof(sml_dx11_material) * 10);
+    DX11Renderer->Materials.Data       = malloc(sizeof(dx11_material) * 10);
     DX11Renderer->Materials.Capacity   = 10;
-    DX11Renderer->Materials.SizeOfType = sizeof(sml_dx11_material);
+    DX11Renderer->Materials.SizeOfType = sizeof(dx11_material);
 
     DX11Renderer->Instances.Count      = 0;
-    DX11Renderer->Instances.Data       = malloc(sizeof(sml_dx11_instance) * 10);
+    DX11Renderer->Instances.Data       = malloc(sizeof(dx11_instance) * 10);
     DX11Renderer->Instances.Capacity   = 10;
-    DX11Renderer->Instances.SizeOfType = sizeof(sml_dx11_instance);
+    DX11Renderer->Instances.SizeOfType = sizeof(dx11_instance);
 
     DX11Renderer->Instanced.Count      = 0;
-    DX11Renderer->Instanced.Data       = malloc(sizeof(sml_dx11_instanced) * 10);
+    DX11Renderer->Instanced.Data       = malloc(sizeof(dx11_instanced) * 10);
     DX11Renderer->Instanced.Capacity   = 10;
-    DX11Renderer->Instanced.SizeOfType = sizeof(sml_dx11_instanced);
+    DX11Renderer->Instanced.SizeOfType = sizeof(dx11_instanced);
 
     Renderer = DX11Renderer;
 
     ImGui_ImplDX11_Init(Dx11.Device, Dx11.Context);
 }
+
+} // namespace SML

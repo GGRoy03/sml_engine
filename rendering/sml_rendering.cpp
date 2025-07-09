@@ -231,7 +231,7 @@ Sml_CreateRenderer(SmlRenderer_Backend Backend, sml_window Window)
 
     case SmlRenderer_DirectX11:
     {
-        SmlDx11_Initialize(Window);
+        SML::Dx11_Initialize(Window);
     } break;
 
 #endif

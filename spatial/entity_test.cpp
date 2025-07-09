@@ -94,11 +94,11 @@ Sml_CreateEntity(sml_heap_block VtxHeap, sml_heap_block IdxHeap, sml_u32 IdxCoun
     E->Position      = Position;
     E->Material      = Material;
     E->Alive         = true;
-    E->Data.Instance = Sml_SetupInstance(VtxHeap, IdxHeap, IdxCount, Material,
-                                         SmlCommand_InstanceFreeHeap);
+    E->Data.Instance = SML::SetupInstance(VtxHeap, IdxHeap, IdxCount, Material,
+                                          SML::Command_InstanceFreeHeap);
     strncpy(E->Name, Identifier, 63);
 
-    Sml_UpdateInstance(E->Position, E->Data.Instance);
+    SML::UpdateInstance(E->Position, E->Data.Instance);
 
     return Id;
 }
@@ -113,7 +113,7 @@ Sml_UpdateEntity(sml_entity_id EntityId)
 
     case SmlEntity_Instance:
     {
-        Sml_UpdateInstance(E->Position, E->Data.Instance);
+        SML::UpdateInstance(E->Position, E->Data.Instance);
     } break;
 
     case SmlEntity_Instanced:
@@ -137,7 +137,7 @@ Sml_DrawEntity(sml_entity_id EntityId)
 
     case SmlEntity_Instance:
     {
-        Sml_DrawInstance(E->Data.Instance);
+        SML::DrawInstance(E->Data.Instance);
     } break;
 
     case SmlEntity_Instanced:

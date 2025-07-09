@@ -308,13 +308,13 @@ SmlInt_CreateNavMeshDebugInstance(sml_nav_poly *NavPolygons, sml_u32 Count)
     memcpy(DebugMesh.VtxData, DebugVtx.Values, DebugMesh.VtxHeap.Size);
     memcpy(DebugMesh.IdxData, DebugIdx.Values, DebugMesh.IdxHeap.Size);
 
-    sml_u32 Material = Sml_SetupMaterial(nullptr, 0, SmlShaderFeat_Color, 0);
+    sml_u32 Material = SML::SetupMaterial(nullptr, 0, SmlShaderFeat_Color, 0);
     sml_instance DebugInstance
-        = Sml_SetupInstance(DebugMesh.VtxHeap, DebugMesh.IdxHeap,
+        = SML::SetupInstance(DebugMesh.VtxHeap, DebugMesh.IdxHeap,
                             DebugMesh.IndexCount(), Material,
-                            SmlCommand_InstanceFreeHeap);
+                            SML::Command_InstanceFreeHeap);
 
-    Sml_UpdateInstance(sml_vector3(0.0f, 0.0f, 0.0f), DebugInstance); // NOTE: Position?
+    SML::UpdateInstance(sml_vector3(0.0f, 0.0f, 0.0f), DebugInstance); // NOTE: Position?
 
     return DebugInstance;
 }

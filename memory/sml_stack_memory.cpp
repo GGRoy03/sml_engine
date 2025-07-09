@@ -1,3 +1,5 @@
+// TODO: Simplify this code.
+
 struct sml_heap_block
 {
     void   *Data;
