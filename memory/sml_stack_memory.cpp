@@ -1,139 +1,177 @@
-// ===================================
-// Type Definitions
-// ===================================
-
-// NOTE: Generation counter on blocks for easier debugging?
-// I think this way of doing things can easily go out of control.
-
-struct sml_memory_block
+struct sml_heap_block
 {
-    void  *Data;
-    size_t At;
-    size_t Size;
+    void   *Data;
+    size_t  At;
+    size_t  Size;
+    sml_u32 IntIdx;
 };
 
-// NOTE: OOP?
 struct sml_memory
 {
+    // Core-data
     void  *PushBase;
     size_t PushSize;
     size_t PushCapacity;
 
-    sml_memory_block *FreeList;
-    sml_u32           FreeCount;
-};
+    // Free-list
+    sml_heap_block *FreeList;
+    sml_u32         FreeCount;
 
-static constexpr size_t  SmlMemorySize   = Sml_Kilobytes(50);
-static constexpr sml_u32 SmlFreeListSize = 10;
+    sml_u32 *IdxStack;
+    sml_u32  IdxStackCount;
 
-// ===================================
-// Global Variables
-// ===================================
+    sml_u32 *NextArray;
+    sml_u32 *PrevArray;
+    sml_u32  Head;
+    sml_u32  Tail;
 
-static sml_memory SmlMemory;
+    size_t BiggestFreeBlock;
 
-// ===================================
-// Internal Helpers
-// ===================================
+    // Meta-data
+    bool ResizeOnFull;
 
-static size_t
-SmlInt_BeginTemporaryRegion()
-{
-    return SmlMemory.PushSize;
-}
+    static constexpr sml_u32 Invalid      = sml_u32(-1);
+    static constexpr sml_u32 FreeListSize = 100;
 
-static void
-SmlInt_EndTemporaryRegion(size_t Marker)
-{
-    if(SmlMemory.PushSize + Marker > SmlMemory.PushCapacity)
+    sml_memory(){};
+    sml_memory(size_t HeapSize, bool ResizeOnFull = false)
     {
-        Sml_Assert(!"Memory overflow from temporary region.");
+        this->PushBase     = malloc(HeapSize);
+        this->PushSize     = 0;
+        this->PushCapacity = HeapSize;
+
+        this->FreeCount = 0;
+        this->FreeList  =
+            (sml_heap_block*)malloc(this->FreeListSize * sizeof(sml_heap_block));
+
+        this->IdxStackCount = 0;
+        this->IdxStack      = (sml_u32*)malloc(this->FreeListSize * sizeof(sml_u32));
+
+        this->NextArray = (sml_u32*)malloc(this->FreeListSize * sizeof(sml_u32) * 2);
+        this->PrevArray = this->NextArray + this->FreeListSize;
+        this->Head      = this->Invalid;
+        this->Tail      = this->Invalid;
+
+        this->ResizeOnFull = ResizeOnFull;
+
+        memset(this->PushBase , 0, HeapSize);
+        memset(this->FreeList , 0, this->FreeListSize * sizeof(sml_heap_block));
+        memset(this->IdxStack , 0, this->FreeListSize * sizeof(sml_u32));
+        memset(this->NextArray, 0, this->FreeListSize * sizeof(sml_u32));
+        memset(this->PrevArray, 0, this->FreeListSize * sizeof(sml_u32));
     }
 
-    SmlMemory.PushSize = Marker;
-}
-
-// BUG: Underflow bug somewhere?
-
-static sml_memory_block
-SmlInt_PushMemory(size_t Size)
-{
-    if(!SmlMemory.PushBase)
+    sml_heap_block Allocate(size_t RequestedSize)
     {
-        SmlMemory.PushBase     = malloc(SmlMemorySize);
-        SmlMemory.PushCapacity = SmlMemorySize;
-        SmlMemory.PushSize     = 0;
-        SmlMemory.FreeCount    = 0;
-        SmlMemory.FreeList     = 
-            (sml_memory_block*)malloc(SmlFreeListSize * sizeof(sml_memory_block));
-    }
+        Sml_Assert(this->PushBase  && this->FreeList &&
+                   this->NextArray && this->PrevArray);
 
-    if(SmlMemory.PushSize + Size > SmlMemory.PushCapacity)
-    {
-        Sml_Assert(!"Out of memory");
-    }
-
-    for(sml_u32 FreeIndex = SmlMemory.FreeCount; FreeIndex-- > 0;)
-    {
-        sml_memory_block *FreeBlock = SmlMemory.FreeList + FreeIndex;
-
-        if(FreeBlock->Size >= Size)
+        if(this->PushSize + RequestedSize > this->PushCapacity)
         {
-            size_t OrigAt   = FreeBlock->At;
-            size_t OrigSize = FreeBlock->Size;
-
-            auto Last  = SmlMemory.FreeList[--SmlMemory.FreeCount];
-            *FreeBlock = Last;
-
-            sml_memory_block Result = {};
-            Result.Data = (sml_u8*)SmlMemory.PushBase + FreeBlock->At;
-            Result.Size = Size;
-            Result.At   = OrigAt;
-
-            size_t Diff = OrigSize - Size;
-            if(Diff > 0)
+            if(this->ResizeOnFull)
             {
-                sml_memory_block Leftover = {};
-                Leftover.Data = (sml_u8*)SmlMemory.PushBase + Result.At + Size;
-                Leftover.Size = Diff;
-                Leftover.At   = Result.At + Size;
+                // BUG: Missing logic.
+            }
+            else
+            {
+                Sml_Assert(!"Out of memory.");
+            }
+        }
 
-                Sml_Assert(SmlMemory.FreeCount <= SmlFreeListSize);
-                SmlMemory.FreeList[SmlMemory.FreeCount++] = Leftover;
+        if(this->Tail != this->Invalid && RequestedSize <= this->BiggestFreeBlock)
+        { 
+            sml_heap_block *FreeBlock = nullptr;
+            sml_u32         Idx       = this->Head;
+
+            while(Idx != this->Invalid)
+            {
+                sml_heap_block *Block = this->FreeList + Idx;
+
+                if(Block->Size >= RequestedSize)
+                {
+                    FreeBlock = Block;
+                    break;
+                }
+
+                Idx = this->NextArray[Idx];
+            }
+
+            Sml_Assert(FreeBlock);
+
+            sml_u32 Prev = this->PrevArray[Idx];
+            sml_u32 Next = this->NextArray[Idx];
+
+            Prev == this->Invalid ? this->Head = Next : this->PrevArray[Next] = Prev;
+            Next == this->Invalid ? this->Tail = Prev : this->NextArray[Prev] = Next;
+
+            sml_heap_block Result = {};
+            Result.Data   = (sml_u8*)this->PushBase + FreeBlock->At;
+            Result.Size   = RequestedSize;
+            Result.At     = FreeBlock->At;
+            Result.IntIdx = FreeBlock->IntIdx;
+
+            size_t SizeDiff = FreeBlock->Size - RequestedSize;
+            if(SizeDiff > 0)
+            {
+                sml_heap_block Extra = {};
+                Extra.Data   = (sml_u8*)this->PushBase + FreeBlock->At + RequestedSize;
+                Extra.Size   = SizeDiff;
+                Extra.At     = FreeBlock->At + RequestedSize;
+                Extra.IntIdx = this->IdxStack[--this->IdxStackCount];
+
+                this->InsertFreeBlock(Extra);
             }
 
             return Result;
         }
+        else
+        {
+            sml_heap_block Block = {};
+            Block.Data = (sml_u8*)this->PushBase + this->PushSize;
+            Block.Size = RequestedSize;
+            Block.At   = this->PushSize;
+
+            this->PushSize += RequestedSize;
+
+            return Block;
+        }
     }
 
-    sml_memory_block Block = {};
-    Block.Data = (sml_u8*)SmlMemory.PushBase + SmlMemory.PushSize;
-    Block.Size = Size;
-    Block.At   = SmlMemory.PushSize;
-
-    SmlMemory.PushSize += Size;
-
-    return Block;
-}
-
-static void
-SmlInt_FreeMemory(sml_memory_block Block)
-{
-    if(SmlMemory.FreeCount == SmlFreeListSize)
+    void Free(sml_heap_block Block)
     {
-        Sml_Assert(!"Free list is already full");
-        return;
+        Sml_Assert(this->IdxStackCount < this->FreeListSize);
+
+        this->InsertFreeBlock(Block);
+        this->IdxStack[this->IdxStackCount++] = Block.IntIdx;
     }
 
-    SmlMemory.FreeList[SmlMemory.FreeCount++] = Block;
-}
+    sml_heap_block Reallocate(sml_heap_block OldBlock, sml_u32 Growth)
+    {
+        auto NewBlock = this->Allocate(OldBlock.Size * Growth);
+        memcpy(NewBlock.Data, OldBlock.Data, OldBlock.Size);
+        this->Free(OldBlock);
 
-static sml_memory_block
-SmlInt_ReallocateMemory(sml_memory_block OldBlock, sml_u32 Growth)
-{
-    sml_memory_block NewBlock = SmlInt_PushMemory(OldBlock.Size * Growth);
-    memcpy(NewBlock.Data, OldBlock.Data, OldBlock.Size);
-    SmlInt_FreeMemory(OldBlock);
+        return NewBlock;
+    }
 
-    return NewBlock;
-}
+    void InsertFreeBlock(sml_heap_block Block)
+    {
+        sml_u32 InsertAt = this->Head;
+        while(this->FreeList[InsertAt].At < Block.At)
+        {
+            InsertAt = this->NextArray[InsertAt];
+        }
+
+        sml_u32 NextAt = this->NextArray[InsertAt];
+
+        this->PrevArray[Block.IntIdx] = InsertAt;
+        this->NextArray[Block.IntIdx] = this->NextArray[InsertAt];
+
+        this->PrevArray[NextAt]   = Block.IntIdx;
+        this->NextArray[InsertAt] = Block.IntIdx;
+
+        if(Block.Size > this->BiggestFreeBlock) this->BiggestFreeBlock = Block.Size;
+    }
+};
+
+static auto SmlMemory = sml_memory(Sml_Kilobytes(50));

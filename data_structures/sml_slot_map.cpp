@@ -1,9 +1,5 @@
 #include <type_traits> // static type checking
 
-// WARN:
-// Quite heavy on memory.
-// Something is wrong. This looks too complex.
-
 template <typename D, typename F>
 struct sml_slot_map
 {
@@ -22,9 +18,9 @@ struct sml_slot_map
     F  Tail;
 
     // Heap
-    sml_memory_block DataHeap;
-    sml_memory_block FreeListHeap;
-    sml_memory_block ActiveListHeap;
+    sml_heap_block DataHeap;
+    sml_heap_block FreeListHeap;
+    sml_heap_block ActiveListHeap;
 
     // Meta
     bool ResizeOnFull = false;
@@ -38,19 +34,19 @@ struct sml_slot_map
 
         this->Capacity = InitialSize;
 
-        this->DataHeap = SmlInt_PushMemory(this->Capacity * sizeof(D));
+        this->DataHeap = SmlMemory.Allocate(this->Capacity * sizeof(D));
         this->Data     = (D*)this->DataHeap.Data;
 
-        this->FreeListHeap = SmlInt_PushMemory(this->Capacity * sizeof(F));
+        this->FreeListHeap = SmlMemory.Allocate(this->Capacity * sizeof(F));
         this->FreeList     = (F*)this->FreeListHeap.Data;
         this->FreeCount    = this->Capacity;
 
-        this->ActiveListHeap = SmlInt_PushMemory(this->Capacity * sizeof(F) * 2);
+        this->ActiveListHeap = SmlMemory.Allocate(this->Capacity * sizeof(F) * 2);
         this->Next           = (F*)this->ActiveListHeap.Data;
         this->Prev           = (F*)this->Next + this->Capacity;
 
         this->Head = this->Invalid;
-        this->Tail = Invalid;
+        this->Tail = this->Invalid;
 
         for(sml_u32 Idx = 0; Idx < this->Capacity; Idx++)
         {
@@ -85,8 +81,8 @@ struct sml_slot_map
         {
             this->Capacity *= 2;
 
-            this->DataHeap     = SmlInt_ReallocateMemory(this->DataHeap    , 2);
-            this->FreeListHeap = SmlInt_ReallocateMemory(this->FreeListHeap, 2);
+            this->DataHeap     = SmlMemory.Reallocate(this->DataHeap    , 2);
+            this->FreeListHeap = SmlMemory.Reallocate(this->FreeListHeap, 2);
 
             // BUG: Placeholder
             return 0;
@@ -119,12 +115,6 @@ struct sml_slot_map
         {
             Sml_Assert(!"Free list already full.");
         }
-    }
-
-
-    inline sml_u32 SlotCount()
-    {
-        return this->Capacity - this->FreeCount;
     }
 
     D& operator[](F Idx)

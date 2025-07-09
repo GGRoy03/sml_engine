@@ -54,8 +54,8 @@ struct sml_hashmap
     sml_hashmap_entry<K, V> *Buckets;
     sml_u32                  GroupCount;
 
-    sml_memory_block BucketHeap;
-    sml_memory_block MetaDataHeap;
+    sml_heap_block BucketHeap;
+    sml_heap_block MetaDataHeap;
 
     static constexpr uint32_t BucketGroupSize   = 16;
     static constexpr uint8_t  EmptyBucketTag    = 0x80;
@@ -78,10 +78,10 @@ struct sml_hashmap
         sml_u32 BucketCount          = this->GroupCount * this->BucketGroupSize;
         size_t  BucketAllocationSize = BucketCount * sizeof(sml_hashmap_entry<K, V>);
 
-        this->BucketHeap = SmlInt_PushMemory(BucketAllocationSize);
+        this->BucketHeap = SmlMemory.Allocate(BucketAllocationSize);
         this->Buckets    = (sml_hashmap_entry<K, V>*)this->BucketHeap.Data;
 
-        this->MetaDataHeap = SmlInt_PushMemory(BucketCount * sizeof(sml_u8));
+        this->MetaDataHeap = SmlMemory.Allocate(BucketCount * sizeof(sml_u8));
         this->MetaData     = (sml_u8*)this->MetaDataHeap.Data;
 
         memset(this->Buckets, 0, BucketCount * sizeof(sml_hashmap_entry<K, V>));

@@ -180,7 +180,7 @@ SmlInt_BuildPolygonClusters(sml_walkable_list *List)
 {
     auto Visited  = sml_dynamic_array<bool>(List->Walkable.Count);
     auto Clusters = sml_dynamic_array<sml_dynamic_array<sml_tri>>(0);
-    auto Stack    = sml_dynamic_array<sml_tri>(0);
+    auto Stack    = sml_stack<sml_tri>(0);
 
     for(sml_u32 TriIdx = 0; TriIdx < List->Walkable.Count; TriIdx++)
     {
@@ -191,7 +191,7 @@ SmlInt_BuildPolygonClusters(sml_walkable_list *List)
         Stack.Push(TriIdx);
         Visited[TriIdx] = true;
 
-        while(Stack.Count > 0)
+        while(!Stack.Empty())
         {
             sml_tri Current = Stack.Pop();
             Cluster.Push(Current);

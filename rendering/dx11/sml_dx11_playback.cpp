@@ -435,8 +435,8 @@ SmlDx11_CreateInstance(sml_setup_command_instance *Payload)
 
     if(Payload->Flags & SmlCommand_InstanceFreeHeap)
     {
-        SmlInt_FreeMemory(Payload->VtxHeapData);
-        SmlInt_FreeMemory(Payload->IdxHeapData);
+        SmlMemory.Free(Payload->VtxHeapData);
+        SmlMemory.Free(Payload->IdxHeapData);
     }
 
     // NOTE: This is another reason why templated backend resources would be nice.

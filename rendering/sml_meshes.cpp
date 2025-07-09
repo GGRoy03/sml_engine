@@ -28,8 +28,8 @@ struct sml_vertex_color
 template <typename V, typename I>
 struct sml_mesh
 {
-    sml_memory_block VtxHeap;
-    sml_memory_block IdxHeap;
+    sml_heap_block VtxHeap;
+    sml_heap_block IdxHeap;
 
     V *VtxData;
     I *IdxData;
@@ -37,8 +37,8 @@ struct sml_mesh
     sml_mesh(){};
     sml_mesh(sml_u32 VtxCount, sml_u32 IdxCount)
     {
-        this->VtxHeap = SmlInt_PushMemory(VtxCount * sizeof(V));
-        this->IdxHeap = SmlInt_PushMemory(IdxCount * sizeof(I));
+        this->VtxHeap = SmlMemory.Allocate(VtxCount * sizeof(V));
+        this->IdxHeap = SmlMemory.Allocate(IdxCount * sizeof(I));
 
         this->VtxData = (V*)this->VtxHeap.Data;
         this->IdxData = (I*)this->IdxHeap.Data;
@@ -75,8 +75,8 @@ struct sml_mesh_record
     char Name[32];
 
     // Mesh-data
-    sml_memory_block VtxHeap;
-    sml_memory_block IdxHeap;
+    sml_heap_block VtxHeap;
+    sml_heap_block IdxHeap;
 };
 
 // ===========================================
@@ -131,9 +131,10 @@ Sml_GetMesh(sml_mesh_id Id)
 static sml_mesh<sml_vertex, sml_u32>
 Sml_GetCubeMesh()
 {
-    sml_mesh<sml_vertex, sml_u32> Mesh = {};
-    Mesh.VtxHeap = SmlInt_PushMemory(24 * sizeof(sml_vertex));
-    Mesh.IdxHeap = SmlInt_PushMemory(36 * sizeof(sml_u32));
+    const sml_u32 VtxCount = 24;
+    const sml_u32 IdxCount = 32;
+
+    auto Mesh = sml_mesh<sml_vertex, sml_u32>(VtxCount, IdxCount);
     Mesh.VtxData = (sml_vertex*)Mesh.VtxHeap.Data;
     Mesh.IdxData = (sml_u32*)Mesh.IdxHeap.Data;
 

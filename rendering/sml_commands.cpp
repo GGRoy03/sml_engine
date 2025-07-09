@@ -43,9 +43,9 @@ struct sml_setup_command_instance
 {
     sml_bit_field Flags;
 
-    sml_memory_block VtxHeapData;
-    sml_memory_block IdxHeapData;
-    sml_u32          IdxCount;
+    sml_heap_block VtxHeapData;
+    sml_heap_block IdxHeapData;
+    sml_u32        IdxCount;
 
     sml_u32        Material;
     sml_instance   Instance;
@@ -128,8 +128,8 @@ Sml_SetupMaterial(sml_material_texture *MatTexArray, sml_u32 MatTexCount,
 }
 
 static sml_instance
-Sml_SetupInstance(sml_memory_block VtxHeap, sml_memory_block IdxHeap,
-                  sml_u32 IdxCount, sml_u32 Material, sml_bit_field Flags)
+Sml_SetupInstance(sml_heap_block VtxHeap, sml_heap_block IdxHeap, sml_u32 IdxCount,
+                  sml_u32 Material, sml_bit_field Flags)
 {
     sml_command_header Header = {};
     Header.Type = SmlCommand_Instance;

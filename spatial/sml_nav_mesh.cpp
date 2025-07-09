@@ -160,7 +160,6 @@ SmlDebug_NavMeshUI()
     ImGui::PopStyleColor(8);
 }
 
-
 // WARN: 
 // 1) Leaks a lot of memory!
 

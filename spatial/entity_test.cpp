@@ -75,7 +75,7 @@ SmlInt_EnsurePool()
 // ===================================
 
 static sml_entity_id
-Sml_CreateEntity(sml_memory_block VtxHeap, sml_memory_block IdxHeap, sml_u32 IdxCount,
+Sml_CreateEntity(sml_heap_block VtxHeap, sml_heap_block IdxHeap, sml_u32 IdxCount,
                  sml_vector3 Position, sml_u32 Material, const char *Identifier)
 {
     SmlInt_EnsurePool();

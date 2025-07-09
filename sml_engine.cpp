@@ -40,6 +40,7 @@ enum class sml_instanced : sml_u32 {};
 
 // Data structures
 #include "data_structures/sml_dynamic_array.cpp"
+#include "data_structures/sml_stack.cpp"
 #include "data_structures/sml_hashmap.cpp"
 #include "data_structures/sml_slot_map.cpp"
 

@@ -6,17 +6,17 @@ struct sml_dynamic_array
     static_assert(std::is_trivially_copyable<T>::value,
                   "sml_dynamic_array<T> requires T to be trivially copyable");
 
-    T*               Values;
-    sml_u32          Count;
-    sml_u32          Capacity;
-    sml_memory_block Heap;
+    T*             Values;
+    sml_u32        Count;
+    sml_u32        Capacity;
+    sml_heap_block Heap;
 
     sml_dynamic_array(){};
     sml_dynamic_array(sml_u32 InitialCount, bool ZeroInit = true)
     {
         if(InitialCount == 0) InitialCount = 8;
 
-        this->Heap     = SmlInt_PushMemory(InitialCount * sizeof(T));
+        this->Heap     = SmlMemory.Allocate(InitialCount * sizeof(T));
         this->Values   = (T*)this->Heap.Data;
         this->Count    = 0;
         this->Capacity = InitialCount;
@@ -34,37 +34,20 @@ struct sml_dynamic_array
         if(this->Count == this->Capacity)
         {
             this->Capacity *= 2;
-            this->Heap      = SmlInt_ReallocateMemory(this->Heap, 2);
+            this->Heap      = SmlMemory.Reallocate(this->Heap, 2);
+            this->Values    = (T*)this->Heap.Data;
         }
 
         this->Values[Count++] = Value;
-    }
-
-    inline T Pop()
-    {
-        Sml_Assert(this->Values);
-        Sml_Assert(this->Count > 0);
-
-        T Value      = this->Values[this->Count - 1];
-        this->Count -= 1;
-
-        return Value;
     }
 
     inline void Free()
     {
         Sml_Assert(this->Values);
 
-        SmlInt_FreeMemory(this->Heap);
+        SmlMemory.Free(this->Heap);
 
-        this->Values   = nullptr;
-        this->Count    = 0;
-        this->Capacity = 0;
-    }
-
-    inline void SwapErase(sml_u32 EraseAt)
-    {
-        this->Values[EraseAt] = this->Values[--this->Count];
+        memset(this, 0, sizeof(this));
     }
 
     inline void Reset()
