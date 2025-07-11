@@ -53,10 +53,15 @@ using sml_renderer_entry_function = void(*)();
 // even remove SizeOfType and simplify the logic.
 struct sml_backend_resource
 {
-    void    *Data;
-    size_t   SizeOfType;
-    sml_u32  Count;
-    sml_u32  Capacity;
+    void   *Data;
+    size_t  SizeOfType;
+    sml_u32 Count;
+    sml_u32 Capacity;
+};
+
+struct frame_rendering_data
+{
+    sml_matrix4 ViewProjection;
 };
 
 struct sml_renderer
@@ -66,7 +71,7 @@ struct sml_renderer
     size_t CommandPushCapacity;
 
     // Misc data
-    sml_matrix4 CameraData;
+    frame_rendering_data FrameData;
 
     // Backend Resources
     sml_backend_resource Materials;
@@ -201,8 +206,8 @@ SmlInt_GetBackendResource(sml_backend_resource *Resource, sml_u32 Index)
 // ===================================
 
 #include "sml_meshes.cpp"
-#include "sml_camera.cpp"
 #include "sml_commands.cpp"
+#include "sml_camera.cpp"
 #include "sml_shaders.cpp"
 
 // ===================================
@@ -210,7 +215,7 @@ SmlInt_GetBackendResource(sml_backend_resource *Resource, sml_u32 Index)
 // ===================================
 
 #ifdef _WIN32
-#include "dx11/sml_dx11_context.cpp"
+#include "dx11/dx11_context.cpp"
 #endif
 
 // ===================================

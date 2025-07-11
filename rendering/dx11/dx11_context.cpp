@@ -23,7 +23,7 @@ struct dx11_context
     ID3D11Texture2D        *DepthTexture;
     ID3D11DepthStencilView *DepthView;
 
-    ID3D11Buffer *CameraBuffer;
+    ID3D11Buffer *FrameBuffer;
 
     D3D11_VIEWPORT Viewport;
 };

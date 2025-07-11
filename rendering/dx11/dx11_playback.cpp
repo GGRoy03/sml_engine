@@ -469,13 +469,45 @@ Dx11_UpdateInstancedData(update_command_instanced_data* Payload)
 }
 
 static void
+Dx11_UpdateCamera(update_command_camera *Payload)
+{
+    ID3D11DeviceContext *Ctx = Dx11.Context;
+
+    if(Dx11.FrameBuffer == nullptr)
+    {
+        D3D11_BUFFER_DESC Desc = {};
+        Desc.ByteWidth      = sizeof(frame_rendering_data);
+        Desc.BindFlags      = D3D11_BIND_CONSTANT_BUFFER;
+        Desc.Usage          = D3D11_USAGE_DYNAMIC;
+        Desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+        HRESULT Status = Dx11.Device->CreateBuffer(&Desc, nullptr, &Dx11.FrameBuffer);
+        Sml_Assert(SUCCEEDED(Status));
+    }
+
+    // NOTE: Do we just copy the payload? Not really sure what should be in there
+    // anyways.
+
+    D3D11_MAPPED_SUBRESOURCE Mapped;
+    Ctx->Map(Dx11.FrameBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
+    memcpy(Mapped.pData, &Payload->ViewProjection, sizeof(frame_rendering_data));
+    Ctx->Unmap(Dx11.FrameBuffer, 0);
+    Ctx->VSSetConstantBuffers(0, 1, &Dx11.FrameBuffer);
+}
+
+static void
 Dx11_DrawClearScreen(draw_command_clear* Payload)
 {
     Dx11.Context->ClearRenderTargetView(Dx11.RenderView, &Payload->Color.x);
-    Dx11.Context->ClearDepthStencilView(Dx11.DepthView,
-                                        D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
-                                        1, 0);
+
+    UINT  ClearFlags = D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL;
+    FLOAT Depth      = 1;
+    UINT8 Stencil    = 0;
+    Dx11.Context->ClearDepthStencilView(Dx11.DepthView, ClearFlags, Depth, Stencil);
 }
+
+// WARN:
+// 1) This code is terrible?
 
 static void
 Dx11_DrawInstance(draw_command_instance* Payload)
@@ -515,6 +547,9 @@ Dx11_DrawInstance(draw_command_instance* Payload)
 
     Ctx->DrawIndexed(Instance->Geometry.IndexCount, 0, 0);
 }
+
+// WARN:
+// 1) This code is terrible?
 
 static void
 Dx11_DrawInstanced(draw_command_instanced* Payload)
@@ -564,29 +599,10 @@ Dx11_Playback()
     Ctx->OMSetRenderTargets(1, &Dx11.RenderView, Dx11.DepthView);
     Ctx->RSSetViewports(1, &Dx11.Viewport);
 
-    if(Dx11.CameraBuffer == nullptr)
-    {
-        D3D11_BUFFER_DESC CBufferDesc = {};
-        CBufferDesc.ByteWidth      = sizeof(sml_matrix4);
-        CBufferDesc.BindFlags      = D3D11_BIND_CONSTANT_BUFFER;
-        CBufferDesc.Usage          = D3D11_USAGE_DYNAMIC;
-        CBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-
-        HRESULT Status = Dx11.Device->CreateBuffer(&CBufferDesc, nullptr,
-                                                   &Dx11.CameraBuffer);
-        Sml_Assert(SUCCEEDED(Status));
-    }
-
-    D3D11_MAPPED_SUBRESOURCE Mapped;
-    Ctx->Map(Dx11.CameraBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
-    memcpy(Mapped.pData, &Renderer->CameraData, sizeof(sml_matrix4));
-    Ctx->Unmap(Dx11.CameraBuffer, 0);
-    Ctx->VSSetConstantBuffers(0, 1, &Dx11.CameraBuffer);
-
     // =============================================================
 
-    sml_u8   *CmdPtr = (sml_u8*)Renderer->CommandPushBase;
-    size_t    Offset = 0;
+    sml_u8 *CmdPtr = (sml_u8*)Renderer->CommandPushBase;
+    size_t  Offset = 0;
 
     while(Offset < Renderer->CommandPushSize)
     {
@@ -595,43 +611,49 @@ Dx11_Playback()
 
         switch(Header->Type)
         {
-        case Command_Material:
+        case SetupCommand_Material:
         {
             auto *Payload = (setup_command_material*)(CmdPtr + Offset);
             Dx11_CreateMaterial(Payload);
         } break;
 
-        case Command_Instance:
+        case SetupCommand_Instance:
         {
             auto *Payload = (setup_command_instance*)(CmdPtr + Offset);
             Dx11_CreateInstance(Payload);
         } break;
 
-        case Command_InstanceData:
+        case UpdateCommand_InstanceData:
         {
             auto *Payload = (update_command_instance_data*)(CmdPtr + Offset);
             Dx11_UpdateInstanceData(Payload);
         } break;
 
-        case Command_InstancedData:
+        case UpdateCommand_InstancedData:
         {
             auto *Payload = (update_command_instanced_data*)(CmdPtr + Offset);
             Dx11_UpdateInstancedData(Payload);
         } break;
 
-        case Command_Clear:
+        case UpdateCommand_Camera:
+        {
+            auto *Payload = (update_command_camera*)(CmdPtr + Offset);
+            Dx11_UpdateCamera(Payload);
+        } break;
+
+        case DrawCommand_Clear:
         {
             auto *Payload = (draw_command_clear*)(CmdPtr + Offset);
             Dx11_DrawClearScreen(Payload);
         } break;
 
-        case Command_DrawInstance:
+        case DrawCommand_DrawInstance:
         {
             auto *Payload = (draw_command_instance*)(CmdPtr + Offset);
             Dx11_DrawInstance(Payload);
         } break;
 
-        case Command_DrawInstanced:
+        case DrawCommand_DrawInstanced:
         {
             auto *Payload = (draw_command_instanced*)(CmdPtr + Offset);
             Dx11_DrawInstanced(Payload);

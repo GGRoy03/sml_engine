@@ -1,14 +1,16 @@
+namespace SML 
+{
+
 // ===================================
 // Type Definitions
 // ===================================
 
-#define SML_DEFAULT_NEAR_PLANE 0.1f
-#define SML_DEFAULT_FAR_PLANE 100.0f
-#define SML_DEFAULT_FOV_Y 90.0f
-#define SML_DEFAULT_CAMERA_SPEED 0.05f
+constexpr sml_f32 DefaultNearPlane = 0.1f;
+constexpr sml_f32 DefaultFarPlane  = 100.0f;
+constexpr sml_f32 DefaultFovY      = 90.0f;
+constexpr sml_f32 DefaultSpeed     = 0.05f;
 
-// NOTE: I wonder if we need to hold the matrices?
-struct sml_camera_perspective
+struct camera_perspective
 {
     sml_matrix4 View;
     sml_matrix4 Projection;
@@ -40,28 +42,30 @@ struct sml_camera_perspective
 // WARN: Projection code does not accept different planes.
 // WARN: Does not use the delta time
 
-static sml_matrix4 
-Sml_UpdateCamera(sml_camera_perspective *Camera, sml_window Window,
-                 sml_game_controller_input *Inputs)
+static void
+UpdateCamera(camera_perspective *Camera, sml_window Window,
+             sml_game_controller_input *Inputs)
 {
+    // NOTE: Uhm, Idk about this.
+
     if(!Camera->IsInitialized)
     {
         Camera->Position = sml_vector3(0.0f, 0.0f, -2.0f);
         Camera->Up       = sml_vector3(0.0f, 1.0f,  0.0f);
         Camera->Target   = sml_vector3(0.0f, 0.0f,  0.0f);
 
-        Camera->FovY     = SML_DEFAULT_FOV_Y;
-        Camera->NearClip = SML_DEFAULT_NEAR_PLANE; 
-        Camera->FarClip  = SML_DEFAULT_FAR_PLANE;
+        Camera->FovY     = DefaultFovY;
+        Camera->NearClip = DefaultNearPlane; 
+        Camera->FarClip  = DefaultFarPlane; 
         Camera->Aspect   = Window.Width / (f32)Window.Height;
 
-        Camera->Speed = SML_DEFAULT_CAMERA_SPEED;
+        Camera->Speed = DefaultSpeed;
 
         Camera->IsInitialized = true;
     }
 
-    sml_vector3 Forward  = SmlVec3_Normalize(Camera->Target - Camera->Position);
-    sml_vector3 Right    = SmlVec3_Normalize(SmlVec3_VectorProduct(Camera->Up,
+    sml_vector3 Forward = SmlVec3_Normalize(Camera->Target - Camera->Position);
+    sml_vector3 Right   = SmlVec3_Normalize(SmlVec3_VectorProduct(Camera->Up,
                                                                    Forward));
     if(Inputs)
     {
@@ -97,10 +101,11 @@ Sml_UpdateCamera(sml_camera_perspective *Camera, sml_window Window,
         }
     }
 
-    Camera->View       = SmlMat4_LookAt(Camera->Position, Right, Camera->Up, Forward);
-    Camera->Projection = SmlMat4_Perspective(Camera->FovY, Camera->Aspect);
+    Camera->View        = SmlMat4_LookAt(Camera->Position, Right, Camera->Up,Forward);
+    Camera->Projection  = SmlMat4_Perspective(Camera->FovY, Camera->Aspect);
+    auto ViewProjection = SmlMat4_Multiply(Camera->Projection, Camera->View);
 
-    sml_matrix4 Result = SmlMat4_Multiply(Camera->Projection, Camera->View);
-
-    return Result;
+    SML::UpdateCamera(ViewProjection);
 }
+
+} // Namesapce SML
