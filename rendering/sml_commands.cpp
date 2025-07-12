@@ -6,9 +6,6 @@ enum RenderCommand_Type
 {
     Command_None,
 
-    // Setup
-    SetupCommand_Instanced,
-
     // Context
     ContextCommand_Material,
 
@@ -19,8 +16,6 @@ enum RenderCommand_Type
 
     // Draw
     DrawCommand_Clear,
-    DrawCommand_DrawInstance,
-    DrawCommand_DrawInstanced,
 };
 
 enum RenderCommand_Flag
@@ -128,6 +123,19 @@ PushRenderCommand(command_header *Header, void *Payload, sml_u32 PayloadSize)
 // ===================================
 
 static void
+SetMaterialContext(sml_bit_field ShaderFeatures)
+{
+    command_header Header = {};
+    Header.Type = ContextCommand_Material;
+    Header.Size = sml_u32(sizeof(context_command_material));
+
+    context_command_material Payload;
+    Payload.ShaderFeatures = ShaderFeatures;
+
+    PushRenderCommand(&Header, &Payload, Header.Size);
+}
+
+static void
 UpdateMaterial(material Material, texture Texture, Material_Type Type, 
                sml_bit_field Flags)
 {
@@ -220,32 +228,6 @@ DrawClearScreen(sml_vector4 Color)
 
     draw_command_clear Payload = {};
     Payload.Color = Color;
-
-    PushRenderCommand(&Header, &Payload, Header.Size);
-}
-
-static void
-DrawInstance(sml_instance Instance)
-{
-    command_header Header = {};
-    Header.Type = DrawCommand_DrawInstance;
-    Header.Size = (sml_u32)sizeof(draw_command_instance);
-
-    draw_command_instance Payload = {};
-    Payload.Instance = Instance;
-
-    PushRenderCommand(&Header, &Payload, Header.Size);
-}
-
-static void
-DrawInstanced(sml_instanced Instanced)
-{
-    command_header Header = {};
-    Header.Type = DrawCommand_DrawInstanced;
-    Header.Size = (sml_u32)sizeof(draw_command_instanced);
-
-    draw_command_instanced Payload = {};
-    Payload.Instanced = Instanced;
 
     PushRenderCommand(&Header, &Payload, Header.Size);
 }

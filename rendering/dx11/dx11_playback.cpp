@@ -16,6 +16,16 @@ struct dx11_instanced
 // Internal Helpers
 // ===================================
 
+// NOTE: This should do more? Like create the states? (Shaders and all that)
+// This is still a prototype.
+
+static inline void
+Dx11_SetMaterialContext(context_command_material *Payload)
+{
+    Renderer->Context                    = RenderingContext_Material;
+    Renderer->ContextData.ShaderFeatures = Payload->ShaderFeatures;
+}
+
 static void
 Dx11_UpdateCamera(update_command_camera *Payload)
 {
@@ -72,10 +82,22 @@ Dx11_Playback()
         switch(Header->Type)
         {
 
+        case ContextCommand_Material:
+        {
+            auto *Payload = (context_command_material*)(CmdPtr + Offset);
+            Dx11_SetMaterialContext(Payload);
+        } break;
+
         case UpdateCommand_Camera:
         {
             auto *Payload = (update_command_camera*)(CmdPtr + Offset);
             Dx11_UpdateCamera(Payload);
+        } break;
+
+        case UpdateCommand_Instance:
+        {
+            auto *Payload = (update_command_instance*)(CmdPtr + Offset);
+            Dx11_UpdateInstance(Payload);
         } break;
 
         case UpdateCommand_Material:

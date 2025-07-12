@@ -102,5 +102,5 @@ UpdateCamera(camera_perspective *Camera, sml_window Window,
     Camera->Projection  = SmlMat4_Perspective(Camera->FovY, Camera->Aspect);
     auto ViewProjection = SmlMat4_Multiply(Camera->Projection, Camera->View);
 
-    SML::UpdateCamera(ViewProjection);
+    UpdateCamera(ViewProjection);
 }

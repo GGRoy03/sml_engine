@@ -220,22 +220,6 @@ float4 PSMain(VSOutput IN) : SV_Target
 // Internal Helpers
 // ===================================
 
-// NOTE: These are now commands!
-
-static inline void
-BeginMaterialContext(sml_bit_field ShaderFeatures)
-{
-    Renderer->Context      = RenderingContext_Material;
-    Renderer->Context.Data = ShaderFeatures;
-}
-
-static inline void
-EndMaterialContext()
-{
-    Renderer->Context      = RenderingContext_None;
-    Renderer->Context.Data = 0;
-}
-
 // ===================================
 // User API
 // ===================================
