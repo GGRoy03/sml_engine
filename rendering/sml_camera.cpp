@@ -1,6 +1,3 @@
-namespace SML 
-{
-
 // ===================================
 // Type Definitions
 // ===================================
@@ -107,5 +104,3 @@ UpdateCamera(camera_perspective *Camera, sml_window Window,
 
     SML::UpdateCamera(ViewProjection);
 }
-
-} // Namesapce SML

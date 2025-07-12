@@ -139,7 +139,6 @@ Sml_DrawEntity(sml_entity_id EntityId)
 
     case SmlEntity_Instance:
     {
-        SML::DrawInstance(E->Data.Instance);
     } break;
 
     case SmlEntity_Instanced:

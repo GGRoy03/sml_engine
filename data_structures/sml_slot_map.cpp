@@ -1,8 +1,5 @@
 #include <type_traits> // static type checking
 
-namespace SML
-{
-
 template <typename D, typename F>
 struct slot_map
 {
@@ -136,10 +133,8 @@ struct slot_map
         }
     }
 
-    D& operator[](F Idx)
+    D& operator[](F Idx) noexcept
     { 
         return this->Data[Idx]; 
     }
 };
-
-} // namespace SML

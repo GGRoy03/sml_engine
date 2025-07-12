@@ -2,21 +2,16 @@
 // Type Definitions
 // ===================================
 
-enum SmlShaderFeature_Type
+enum ShaderFeature_Type
 {
-    SmlShaderFeat_AlbedoMap = 1 << 0,
-    SmlShaderFeat_Instanced = 1 << 1,
-    SmlShaderFeat_Color     = 1 << 2,
+    ShaderFeat_AlbedoMap = 1 << 0,
+    ShaderFeat_Instanced = 1 << 1,
+    ShaderFeat_Color     = 1 << 2,
 
-    SmlShaderFeat_Count,
+    ShaderFeat_Count,
 };
 
-enum SmlShader_Flag
-{
-    SmlShader_CompileDebug,
-};
-
-enum SmlShader_Type
+enum Shader_Type
 {
     SmlShader_Vertex,
     SmlShader_Pixel,
@@ -28,7 +23,7 @@ enum SmlShader_Type
 // Global Variables
 // ===================================
 
-static const char *SmlUberVertexShader_HLSL = R"(
+static const char *UberVertexShader_HLSL = R"(
 
 // =============================================================================
 // UBER_VERTEX_SHADER.hlsl

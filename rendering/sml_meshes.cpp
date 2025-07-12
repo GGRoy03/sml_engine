@@ -1,6 +1,3 @@
-namespace SML
-{
-
 // ===========================================
 // Type Definitions
 // ==========================================
@@ -192,5 +189,3 @@ GetCubeMesh()
 
     return Mesh;
 }
-
-} // namespace SML

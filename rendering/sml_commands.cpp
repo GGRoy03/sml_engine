@@ -1,28 +1,20 @@
-namespace SML 
-{
-
 // ===================================
 // Type Definitions
 // ===================================
-
-
-// NOTE: Could every setup command be lazy initalized? With a better system?
-// API would be : GetXXHandle, we use that handle to check if init, if now we
-// do init with data? Is the data different?
 
 enum RenderCommand_Type
 {
     Command_None,
 
     // Setup
-    SetupCommand_Material,
     SetupCommand_Instanced,
+
+    // Context
+    ContextCommand_Material,
 
     // Update
     UpdateCommand_Camera,
     UpdateCommand_Instance,
-    UpdateCommand_InstancedData,
-
     UpdateCommand_Material,
 
     // Draw
@@ -33,7 +25,8 @@ enum RenderCommand_Type
 
 enum RenderCommand_Flag
 {
-    RenderCommand_FreeHeap = 1 << 0,
+    RenderCommand_FreeHeap    = 1 << 0,
+    RenderCommand_DebugShader = 1 << 1,
 };
 
 struct command_header
@@ -42,26 +35,34 @@ struct command_header
     sml_u32            Size;
 };
 
-struct setup_command_material
+struct context_command_material
 {
-    sml_material_texture *MaterialTextureArray;
-    sml_u32               MaterialTextureCount;
+    sml_bit_field ShaderFeatures;
+};
 
-    sml_bit_field Features;
+struct update_command_material
+{
+    // Meta-Data
+    texture       Texture;
+    Material_Type Type;
+
+    // Misc
     sml_bit_field Flags;
-    sml_u32       MaterialIndex;
+
+    // Handle
+    material Material;
 };
 
 struct update_command_instance
 {
     // Backend
+    material Material;
+
+    // Meta-Data
     sml_heap_block VtxHeap;
     sml_heap_block IdxHeap;
     sml_u32        IdxCount;
-    material       Material;
-
-    // Meta-Data
-    sml_vector3 Position;
+    sml_vector3    Position;
 
     // Misc
     sml_bit_field Flags;
@@ -79,11 +80,6 @@ struct update_command_instanced_data
 struct update_command_camera
 {
     sml_matrix4 ViewProjection;
-};
-
-struct update_command_material
-{
-    sml_bit_field Flags;
 };
 
 struct draw_command_clear
@@ -131,26 +127,21 @@ PushRenderCommand(command_header *Header, void *Payload, sml_u32 PayloadSize)
 // User API
 // ===================================
 
-static sml_u32
-SetupMaterial(sml_material_texture *MatTexArray, sml_u32 MatTexCount,
-              sml_bit_field Features, sml_bit_field Flags)
+static void
+UpdateMaterial(material Material, texture Texture, Material_Type Type, 
+               sml_bit_field Flags)
 {
     command_header Header = {};
-    Header.Type = SetupCommand_Material;
-    Header.Size = sizeof(setup_command_material);
+    Header.Type = UpdateCommand_Material;
+    Header.Size = sizeof(update_command_material);
 
-    setup_command_material Payload = {};
-    Payload.MaterialTextureArray = MatTexArray;
-    Payload.MaterialTextureCount = MatTexCount;
-    Payload.Features             = Features;
-    Payload.Flags                = Flags;
-    Payload.MaterialIndex        = Renderer->Materials.Count;
+    update_command_material Payload = {};
+    Payload.Texture  = Texture;
+    Payload.Type     = Type;
+    Payload.Flags    = Flags;
+    Payload.Material = Material;
 
     PushRenderCommand(&Header, &Payload, Header.Size);
-
-    ++Renderer->Materials.Count;
-
-    return Payload.MaterialIndex;
 }
 
 static void 
@@ -207,21 +198,6 @@ UpdateInstance(instance Instance, sml_heap_block VtxHeap, sml_heap_block IdxHeap
     PushRenderCommand(&Header, &Payload, Header.Size);
 }
 
-
-static void
-UpdateInstanced(sml_vector3 *Data, sml_instanced Instanced)
-{
-    command_header Header = {};
-    Header.Type = UpdateCommand_InstancedData;
-    Header.Size = (sml_u32)sizeof(update_command_instanced_data);
-
-    update_command_instanced_data Payload = {};
-    Payload.Data      = Data;
-    Payload.Instanced = Instanced;
-
-    PushRenderCommand(&Header, &Payload, Header.Size);
-}
-
 static void
 UpdateCamera(sml_matrix4 Data)
 {
@@ -273,5 +249,3 @@ DrawInstanced(sml_instanced Instanced)
 
     PushRenderCommand(&Header, &Payload, Header.Size);
 }
-
-} // namespace SML

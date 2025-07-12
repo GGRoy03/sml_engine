@@ -2,44 +2,75 @@
 //  Type Definitions
 // ===================================
 
-using sml_bit_field = u32;
-
-enum class material : sml_u32 {};
-enum class instance : sml_u32 {};
-
-enum SmlRenderer_Backend
+template<typename Tag, typename Underlying = sml_u32>
+struct strong_index 
 {
-    SmlRenderer_None,
+    Underlying Value;
 
-    SmlRenderer_DirectX11,
+    constexpr strong_index() noexcept = default;
 
-    SmlRenderer_Count
+    constexpr explicit strong_index(Underlying v) noexcept
+      : Value(v) {}
+
+    constexpr operator Underlying() const noexcept 
+    {
+      return Value;
+    }
 };
 
-enum SmlMaterial_Type
+using sml_bit_field = u32;
+
+struct material_tag{};
+struct instance_tag{};
+
+using material = strong_index<material_tag>;
+using instance = strong_index<instance_tag>;
+
+enum Renderer_Backend
 {
-    SmlMaterial_Unknown,
+    Renderer_None,
 
-    SmlMaterial_Albedo,
-    SmlMaterial_Normal,
-    SmlMaterial_Metallic,
-    SmlMaterial_AmbientOcc,
+    Renderer_DirectX11,
+};
 
-    SmlMaterial_Count,
+enum Material_Type
+{
+    Material_Albedo,
+
+    MaterialType_Count,
+};
+
+enum RenderingContext_Type
+{
+    RenderingContext_None,
+
+    RenderingContext_Material,
 };
 
 #define MATERIAL_TYPE_TO_SLOT(M) (M-1)
 
-struct sml_material_texture
+struct texture
 {
-    sml_u8          *Pixels;
-    size_t           DataSize;
-    sml_i32          Width, Height;
-    sml_i32          Pitch, Channels;
-    SmlMaterial_Type MaterialType;
+    sml_u8 *Pixels;
+    size_t  DataSize;
+    sml_i32 Width;
+    sml_i32 Height;
+    sml_i32 Pitch;
+    sml_i32 Channels;
+
+    sml_heap_block PixelHeap;
 };
 
-struct sml_material_constants
+struct material_texture
+{
+    sml_u8       *Pixels;
+    size_t        DataSize;
+    sml_i32       Width, Height;
+    sml_i32       Pitch, Channels;
+    Material_Type MaterialType;
+};
+
+struct material_constants
 {
     sml_vector3 AlbedoFactor;
     sml_f32     MetallicFactor;
@@ -47,26 +78,15 @@ struct sml_material_constants
     sml_f32     Padding[3];
 };
 
-
-using sml_renderer_entry_function = void(*)();
-static sml_renderer_entry_function Playback;
-
-// NOTE: Use slot maps? They are templated..
-// This is legacy.
-struct sml_backend_resource
-{
-    void   *Data;
-    size_t  SizeOfType;
-    sml_u32 Count;
-    sml_u32 Capacity;
-};
+using renderer_playback = void(*)();
+static renderer_playback Playback;
 
 struct frame_rendering_data
 {
     sml_matrix4 ViewProjection;
 };
 
-struct sml_renderer
+struct renderer
 {
     // Commands
     void  *CommandPushBase;
@@ -76,19 +96,20 @@ struct sml_renderer
     // Misc data
     frame_rendering_data FrameData;
 
+    // Context
+    RenderingContext_Type Context;
+    union
+    {
+        sml_bit_field ShaderFeatures;
+    } ContextData;
+
     // Backend
     void *Backend;
-
-    // Backend Resources
-    sml_backend_resource Materials;
-    sml_backend_resource Groups;
-    sml_backend_resource Instances;
-    sml_backend_resource Instanced;
 };
 
-static sml_renderer* Renderer;
+static renderer* Renderer;
 
-struct sml_instance_data
+struct instance_data
 {
     sml_vector3 Position;
     sml_u32     Material;
@@ -179,32 +200,6 @@ float4 PSMain(VSOutput IN) : SV_Target
 )";
 
 // ===================================
-// Helper Functions
-// ===================================
-
-static void
-SmlInt_PushToBackendResource(sml_backend_resource *Resource, void *Data, sml_u32 Index)
-{
-    Sml_Assert(Resource->Data);
-
-    if(Resource->Count < Resource->Capacity)
-    {
-        void *WritePointer = (sml_u8*)Resource->Data + (Index *  Resource->SizeOfType);
-        memcpy(WritePointer, Data, Resource->SizeOfType);
-    }
-}
-
-static void*
-SmlInt_GetBackendResource(sml_backend_resource *Resource, sml_u32 Index)
-{
-    Sml_Assert(Resource->Data);
-
-    void *ReadPointer = (sml_u8*)Resource->Data + (Index *  Resource->SizeOfType);
-
-    return ReadPointer;
-}
-
-// ===================================
 // Renderer agnostic files
 // ===================================
 
@@ -222,24 +217,40 @@ SmlInt_GetBackendResource(sml_backend_resource *Resource, sml_u32 Index)
 #endif
 
 // ===================================
+// Internal Helpers
+// ===================================
+
+// NOTE: These are now commands!
+
+static inline void
+BeginMaterialContext(sml_bit_field ShaderFeatures)
+{
+    Renderer->Context      = RenderingContext_Material;
+    Renderer->Context.Data = ShaderFeatures;
+}
+
+static inline void
+EndMaterialContext()
+{
+    Renderer->Context      = RenderingContext_None;
+    Renderer->Context.Data = 0;
+}
+
+// ===================================
 // User API
 // ===================================
 
-// WARN:
-// 1) Uses malloc instead of the engine's allocator.
-// 2) Uses macros that do not exist in this code base
-
-static sml_renderer*
-Sml_CreateRenderer(SmlRenderer_Backend Backend, sml_window Window)
+static renderer*
+Sml_CreateRenderer(Renderer_Backend Backend, sml_window Window)
 {
     switch(Backend)
     {
 
 #ifdef _WIN32
 
-    case SmlRenderer_DirectX11:
+    case Renderer_DirectX11:
     {
-        SML::Dx11_Initialize(Window);
+        Dx11_Initialize(Window);
     } break;
 
 #endif
@@ -252,17 +263,17 @@ Sml_CreateRenderer(SmlRenderer_Backend Backend, sml_window Window)
 
     }
 
-    Renderer->CommandPushBase     = malloc(Sml_Kilobytes(5));
+    Renderer->CommandPushBase     = SmlMemory.Allocate(Sml_Kilobytes(5)).Data;
     Renderer->CommandPushSize     = 0;
     Renderer->CommandPushCapacity = Sml_Kilobytes(5);
 
     return Renderer;
 }
 
-static sml_material_texture
-Sml_LoadMaterialTexture(const char *FileName, SmlMaterial_Type MaterialType)
+static material_texture
+LoadMaterialTexture(const char *FileName, Material_Type MaterialType)
 {
-    sml_material_texture MatText = {};
+    material_texture MatText = {};
 
     MatText.Pixels = stbi_load(FileName, &MatText.Width, &MatText.Height,
                                &MatText.Channels, 4);

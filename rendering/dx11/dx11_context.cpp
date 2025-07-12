@@ -6,9 +6,6 @@
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "D3DCompiler.lib")
 
-namespace SML 
-{
-
 // ===================================
 // Type Definitions
 // ===================================
@@ -37,6 +34,17 @@ static dx11_context Dx11;
 // ===================================
 // Helper Functions
 // ===================================
+
+template<typename T>
+static inline void
+Dx11_Release(T *&Resource)
+{
+    if(Resource)
+    {
+        Resource->Release();
+        Resource = nullptr;
+    }
+}
 
 // ===================================
 // Directx11 Files
@@ -125,32 +133,12 @@ Dx11_Initialize(sml_window Window)
 
     Status = Dx11.Device->CreateDepthStencilView(Dx11.DepthTexture, &DepthTexDescV,
                                                  &Dx11.DepthView);
-
     Sml_Assert(SUCCEEDED(Status));
 
-    using namespace SML;
-
-    auto *DX11Renderer = (sml_renderer*)malloc(sizeof(sml_renderer));
-
-    DX11Renderer->Materials.Count      = 0;
-    DX11Renderer->Materials.Data       = malloc(sizeof(dx11_material) * 10);
-    DX11Renderer->Materials.Capacity   = 10;
-    DX11Renderer->Materials.SizeOfType = sizeof(dx11_material);
-
-    DX11Renderer->Instances.Count      = 0;
-    DX11Renderer->Instances.Data       = malloc(sizeof(dx11_instance) * 10);
-    DX11Renderer->Instances.Capacity   = 10;
-    DX11Renderer->Instances.SizeOfType = sizeof(dx11_instance);
-
-    DX11Renderer->Instanced.Count      = 0;
-    DX11Renderer->Instanced.Data       = malloc(sizeof(dx11_instanced) * 10);
-    DX11Renderer->Instanced.Capacity   = 10;
-    DX11Renderer->Instanced.SizeOfType = sizeof(dx11_instanced);
+    auto *DX11Renderer = (renderer*)SmlMemory.Allocate(sizeof(renderer)).Data;
 
     Renderer = DX11Renderer;
-    Playback = SML::Dx11_Playback;
+    Playback = Dx11_Playback;
 
     ImGui_ImplDX11_Init(Dx11.Device, Dx11.Context);
 }
-
-} // namespace SML
