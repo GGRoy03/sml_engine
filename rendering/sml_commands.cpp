@@ -10,19 +10,20 @@ namespace SML
 // API would be : GetXXHandle, we use that handle to check if init, if now we
 // do init with data? Is the data different?
 
-enum Command_Type
+enum RenderCommand_Type
 {
     Command_None,
 
     // Setup
     SetupCommand_Material,
-    SetupCommand_Instance,
     SetupCommand_Instanced,
 
     // Update
     UpdateCommand_Camera,
-    UpdateCommand_InstanceData,
+    UpdateCommand_Instance,
     UpdateCommand_InstancedData,
+
+    UpdateCommand_Material,
 
     // Draw
     DrawCommand_Clear,
@@ -30,15 +31,15 @@ enum Command_Type
     DrawCommand_DrawInstanced,
 };
 
-enum Command_Flag
+enum RenderCommand_Flag
 {
-    Command_InstanceFreeHeap = 1 << 0,
+    RenderCommand_FreeHeap = 1 << 0,
 };
 
 struct command_header
 {
-    Command_Type Type;
-    sml_u32      Size;
+    RenderCommand_Type Type;
+    sml_u32            Size;
 };
 
 struct setup_command_material
@@ -51,33 +52,38 @@ struct setup_command_material
     sml_u32       MaterialIndex;
 };
 
-struct setup_command_instance
+struct update_command_instance
 {
+    // Backend
+    sml_heap_block VtxHeap;
+    sml_heap_block IdxHeap;
+    sml_u32        IdxCount;
+    material       Material;
+
+    // Meta-Data
+    sml_vector3 Position;
+
+    // Misc
     sml_bit_field Flags;
 
-    sml_heap_block VtxHeapData;
-    sml_heap_block IdxHeapData;
-    sml_u32        IdxCount;
-
-    sml_u32      Material;
-    sml_instance Instance;
-};
-
-struct update_command_instance_data
-{
-    sml_vector3  Data;
-    sml_instance Instance;
+    // Handle
+    instance Instance;
 };
 
 struct update_command_instanced_data
 {
-    sml_vector3   *Data;
-    sml_instanced  Instanced;
+    sml_vector3  *Data;
+    sml_instanced Instanced;
 };
 
 struct update_command_camera
 {
     sml_matrix4 ViewProjection;
+};
+
+struct update_command_material
+{
+    sml_bit_field Flags;
 };
 
 struct draw_command_clear
@@ -147,41 +153,60 @@ SetupMaterial(sml_material_texture *MatTexArray, sml_u32 MatTexCount,
     return Payload.MaterialIndex;
 }
 
-static sml_instance
-SetupInstance(sml_heap_block VtxHeap, sml_heap_block IdxHeap, sml_u32 IdxCount,
-              sml_u32 Material, sml_bit_field Flags)
+static void 
+UpdateInstance(instance Instance, sml_vector3 Position)
 {
     command_header Header = {};
-    Header.Type = SetupCommand_Instance;
-    Header.Size = (sml_u32)sizeof(setup_command_instance);
+    Header.Type = UpdateCommand_Instance;
+    Header.Size = sizeof(update_command_instance);
 
-    setup_command_instance Payload = {};
-    Payload.Flags       = Flags;
-    Payload.VtxHeapData = VtxHeap;
-    Payload.IdxHeapData = IdxHeap;
-    Payload.IdxCount    = IdxCount;
-    Payload.Material    = Material;
-    Payload.Instance    = (sml_instance)Renderer->Instances.Count;
-
-    PushRenderCommand(&Header, &Payload, Header.Size);
-
-    ++Renderer->Instances.Count;
-    return Payload.Instance;
-}
-
-static void
-UpdateInstance(sml_vector3 Data, sml_instance Instance)
-{
-    command_header Header = {};
-    Header.Type = UpdateCommand_InstanceData;
-    Header.Size = (sml_u32)sizeof(update_command_instance_data);
-
-    update_command_instance_data Payload = {};
-    Payload.Data     = Data;
+    update_command_instance Payload = {};
+    Payload.Position = Position;
     Payload.Instance = Instance;
 
     PushRenderCommand(&Header, &Payload, Header.Size);
 }
+
+static void
+UpdateInstance(instance Instance, sml_heap_block VtxHeap, sml_heap_block IdxHeap,
+               sml_u32 IdxCount, material Material, sml_bit_field Flags)
+{
+    command_header Header = {};
+    Header.Type = UpdateCommand_Instance;
+    Header.Size = sizeof(update_command_instance);
+
+    update_command_instance Payload = {};
+    Payload.VtxHeap  = VtxHeap;
+    Payload.IdxHeap  = IdxHeap;
+    Payload.IdxCount = IdxCount;
+    Payload.Material = Material;
+    Payload.Flags    = Flags;
+    Payload.Instance = Instance;
+
+    PushRenderCommand(&Header, &Payload, Header.Size);
+}
+
+static void
+UpdateInstance(instance Instance, sml_heap_block VtxHeap, sml_heap_block IdxHeap,
+               sml_u32 IdxCount, material Material, sml_vector3 Position, 
+               sml_bit_field Flags)
+{
+    command_header Header = {};
+    Header.Type = UpdateCommand_Instance;
+    Header.Size = sizeof(update_command_instance);
+
+    update_command_instance Payload = {};
+    Payload.VtxHeap  = VtxHeap;
+    Payload.IdxHeap  = IdxHeap;
+    Payload.IdxCount = IdxCount;
+    Payload.Material = Material;
+    Payload.Position = Position;
+    Payload.Flags    = Flags;
+    Payload.Instance = Instance;
+
+    PushRenderCommand(&Header, &Payload, Header.Size);
+}
+
 
 static void
 UpdateInstanced(sml_vector3 *Data, sml_instanced Instanced)

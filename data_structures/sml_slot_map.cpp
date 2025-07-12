@@ -1,7 +1,10 @@
 #include <type_traits> // static type checking
 
+namespace SML
+{
+
 template <typename D, typename F>
-struct sml_slot_map
+struct slot_map
 {
     // Core-data
     D      *Data;
@@ -27,8 +30,8 @@ struct sml_slot_map
 
     static constexpr F Invalid = F(-1);
 
-    sml_slot_map(){};
-    sml_slot_map(sml_u32 InitialSize, bool ResizeOnFull = false, bool ZeroInit = true)
+    slot_map(){};
+    slot_map(sml_u32 InitialSize, bool ResizeOnFull = false, bool ZeroInit = true)
     {
         if(InitialSize == 0) InitialSize = 8;
 
@@ -84,6 +87,8 @@ struct sml_slot_map
             this->DataHeap     = SmlMemory.Reallocate(this->DataHeap    , 2);
             this->FreeListHeap = SmlMemory.Reallocate(this->FreeListHeap, 2);
 
+            Sml_Assert(!"Not implemented");
+
             // BUG: Placeholder
             return 0;
         }
@@ -117,8 +122,24 @@ struct sml_slot_map
         }
     }
 
+    inline F GetFreeSlot()
+    {
+        if(this->FreeCount > 0)
+        {
+            F Slot = this->FreeList[--this->FreeCount];
+            return Slot;
+        }
+        else
+        {
+            Sml_Assert(!"No free slots remaining. Resize?");
+            return this->Invalid;
+        }
+    }
+
     D& operator[](F Idx)
     { 
         return this->Data[Idx]; 
     }
 };
+
+} // namespace SML

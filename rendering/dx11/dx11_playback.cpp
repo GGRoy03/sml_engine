@@ -5,43 +5,6 @@ namespace SML
 // Type Definitions
 // ===================================
 
-struct dx11_shader_variant
-{
-    ID3D11InputLayout* InputLayout;
-    UINT               Stride;
-
-    ID3D11VertexShader* VertexShader;
-    ID3D11PixelShader*  PixelShader;
-    sml_bit_field       FeatureFlags;
-};
-
-struct dx11_material_texture
-{
-    ID3D11ShaderResourceView* ResourceView;
-    sml_u32                   Slot;
-};
-
-struct dx11_material
-{
-    dx11_shader_variant       Variant;
-    dx11_material_texture     Sampled[SmlMaterial_Count];
-    ID3D11SamplerState*       SamplerState;
-    ID3D11Buffer*             ConstantBuffer;
-};
-
-struct dx11_geometry
-{
-    ID3D11Buffer* VertexBuffer;
-    ID3D11Buffer* IndexBuffer;
-    sml_u32       IndexCount;
-};
-
-struct dx11_instance
-{
-    sml_instance_data Data;
-    dx11_geometry     Geometry;
-    ID3D11Buffer*     PerObject;
-};
 
 struct dx11_instanced
 {
@@ -377,79 +340,6 @@ Dx11_CreateMaterial(setup_command_material* Payload)
 }
 
 static void
-Dx11_CreateInstance(setup_command_instance* Payload)
-{
-    dx11_instance Instance = {};
-    Instance.Data.Material = Payload->Material;
-
-    {
-        D3D11_BUFFER_DESC Desc = {};
-        Desc.ByteWidth      = sizeof(sml_matrix4);
-        Desc.BindFlags      = D3D11_BIND_CONSTANT_BUFFER;
-        Desc.Usage          = D3D11_USAGE_DYNAMIC;
-        Desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-
-        HRESULT Status = Dx11.Device->CreateBuffer(&Desc, NULL, &Instance.PerObject);
-        Sml_Assert(SUCCEEDED(Status));
-    }
-
-    {
-        D3D11_BUFFER_DESC Desc = {};
-        Desc.ByteWidth = (UINT)Payload->VtxHeapData.Size;
-        Desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-        Desc.Usage     = D3D11_USAGE_IMMUTABLE;
-
-        D3D11_SUBRESOURCE_DATA Data = {};
-        Data.pSysMem = Payload->VtxHeapData.Data;
-
-        HRESULT Status = 
-            Dx11.Device->CreateBuffer(&Desc, &Data, &Instance.Geometry.VertexBuffer);
-
-        Sml_Assert(SUCCEEDED(Status));
-    }
-
-    {
-        D3D11_BUFFER_DESC Desc = {};
-        Desc.ByteWidth = (UINT)Payload->IdxHeapData.Size;
-        Desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-        Desc.Usage     = D3D11_USAGE_IMMUTABLE;
-
-        D3D11_SUBRESOURCE_DATA Data = {};
-        Data.pSysMem = Payload->IdxHeapData.Data;
-
-        HRESULT Status = 
-            Dx11.Device->CreateBuffer(&Desc, &Data, &Instance.Geometry.IndexBuffer);
-
-        Instance.Geometry.IndexCount = Payload->IdxCount;
-
-        Sml_Assert(SUCCEEDED(Status));
-    }
-
-    if(Payload->Flags & Command_InstanceFreeHeap)
-    {
-        SmlMemory.Free(Payload->VtxHeapData);
-        SmlMemory.Free(Payload->IdxHeapData);
-    }
-
-    SmlInt_PushToBackendResource(&Renderer->Instances, &Instance,
-                                 sml_u32(Payload->Instance));
-}
-
-static void
-Dx11_UpdateInstanceData(update_command_instance_data* Payload)
-{
-    dx11_instance *Instance = (dx11_instance*)
-        SmlInt_GetBackendResource(&Renderer->Instances, (sml_u32)Payload->Instance);
-
-    sml_matrix4 World = SmlMat4_Translation(Payload->Data);
-
-    D3D11_MAPPED_SUBRESOURCE Mapped = {};
-    Dx11.Context->Map(Instance->PerObject, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped);
-    memcpy(Mapped.pData, &World, sizeof(sml_matrix4));
-    Dx11.Context->Unmap(Instance->PerObject, 0);
-}
-
-static void
 Dx11_UpdateInstancedData(update_command_instanced_data* Payload)
 {
     dx11_instanced *Instanced = (dx11_instanced*)
@@ -524,9 +414,9 @@ Dx11_DrawInstance(draw_command_instance* Payload)
 
     Ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     Ctx->IASetInputLayout(Material->Variant.InputLayout);
-    Ctx->IASetVertexBuffers(0, 1, &Instance->Geometry.VertexBuffer,
-                            &Material->Variant.Stride, &Offset);
-    Ctx->IASetIndexBuffer(Instance->Geometry.IndexBuffer, DXGI_FORMAT_R32_UINT ,0);
+    Ctx->IASetVertexBuffers(0, 1, &Instance->Buffers.Vtx, &Material->Variant.Stride,
+                            &Offset);
+    Ctx->IASetIndexBuffer(Instance->Buffers.Idx, DXGI_FORMAT_R32_UINT ,0);
 
     Ctx->VSSetShader(Material->Variant.VertexShader, nullptr, 0);
     Ctx->VSSetConstantBuffers(1, 1, &Instance->PerObject);
@@ -545,49 +435,7 @@ Dx11_DrawInstance(draw_command_instance* Payload)
         }
     }
 
-    Ctx->DrawIndexed(Instance->Geometry.IndexCount, 0, 0);
-}
-
-// WARN:
-// 1) This code is terrible?
-
-static void
-Dx11_DrawInstanced(draw_command_instanced* Payload)
-{
-    dx11_instanced *Instanced = (dx11_instanced*)
-        SmlInt_GetBackendResource(&Renderer->Instanced, (sml_u32)Payload->Instanced);
-
-    dx11_material *Material = (dx11_material*)
-        SmlInt_GetBackendResource(&Renderer->Materials, (sml_u32)Instanced->Material);
-
-    ID3D11DeviceContext *Ctx    = Dx11.Context;
-    UINT                 Offset = 0;
-
-    Ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    Ctx->IASetInputLayout(Material->Variant.InputLayout);
-    Ctx->IASetVertexBuffers(0, 1, &Instanced->Geometry.VertexBuffer,
-                            &Material->Variant.Stride, &Offset);
-    Ctx->IASetIndexBuffer(Instanced->Geometry.IndexBuffer, DXGI_FORMAT_R32_UINT ,0);
-
-    Ctx->VSSetShader(Material->Variant.VertexShader, nullptr, 0);
-    Ctx->VSSetShaderResources(10, 1, &Instanced->ResourceView);
-
-    Ctx->PSSetConstantBuffers(2, 1, &Material->ConstantBuffer);
-    Ctx->PSSetSamplers(0, 1, &Material->SamplerState);
-    Ctx->PSSetShader(Material->Variant.PixelShader, nullptr, 0);
-
-    for (u32 Index = 0; Index < SmlMaterial_Count; Index++)
-    {
-        ID3D11ShaderResourceView* View = Material->Sampled[Index].ResourceView;
-
-        if (View)
-        {
-            Ctx->PSSetShaderResources(0, 1, &View);
-        }
-    }
-
-    Ctx->DrawIndexedInstanced(Instanced->Geometry.IndexCount, Instanced->Count,
-                              0, 0, 0);
+    Ctx->DrawIndexed(Instance->Buffers.IdxCnt, 0, 0);
 }
 
 static void
@@ -598,7 +446,6 @@ Dx11_Playback()
     // =============================================================
     Ctx->OMSetRenderTargets(1, &Dx11.RenderView, Dx11.DepthView);
     Ctx->RSSetViewports(1, &Dx11.Viewport);
-
     // =============================================================
 
     sml_u8 *CmdPtr = (sml_u8*)Renderer->CommandPushBase;
@@ -615,18 +462,6 @@ Dx11_Playback()
         {
             auto *Payload = (setup_command_material*)(CmdPtr + Offset);
             Dx11_CreateMaterial(Payload);
-        } break;
-
-        case SetupCommand_Instance:
-        {
-            auto *Payload = (setup_command_instance*)(CmdPtr + Offset);
-            Dx11_CreateInstance(Payload);
-        } break;
-
-        case UpdateCommand_InstanceData:
-        {
-            auto *Payload = (update_command_instance_data*)(CmdPtr + Offset);
-            Dx11_UpdateInstanceData(Payload);
         } break;
 
         case UpdateCommand_InstancedData:
@@ -651,12 +486,6 @@ Dx11_Playback()
         {
             auto *Payload = (draw_command_instance*)(CmdPtr + Offset);
             Dx11_DrawInstance(Payload);
-        } break;
-
-        case DrawCommand_DrawInstanced:
-        {
-            auto *Payload = (draw_command_instanced*)(CmdPtr + Offset);
-            Dx11_DrawInstanced(Payload);
         } break;
 
         default:

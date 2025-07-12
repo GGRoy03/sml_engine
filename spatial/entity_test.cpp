@@ -78,6 +78,10 @@ static sml_entity_id
 Sml_CreateEntity(sml_heap_block VtxHeap, sml_heap_block IdxHeap, sml_u32 IdxCount,
                  sml_vector3 Position, sml_u32 Material, const char *Identifier)
 {
+    Sml_Unused(VtxHeap);
+    Sml_Unused(IdxHeap);
+    Sml_Unused(IdxCount);
+
     SmlInt_EnsurePool();
 
     if (EntityManager.FreeCount == 0)
@@ -90,15 +94,14 @@ Sml_CreateEntity(sml_heap_block VtxHeap, sml_heap_block IdxHeap, sml_u32 IdxCoun
     sml_u32       Idx = sml_u32(Id);
     sml_entity   *E   = SmlInt_GetEntityPointer(Idx);
 
-    E->Type          = SmlEntity_Instance;
-    E->Position      = Position;
-    E->Material      = Material;
-    E->Alive         = true;
-    E->Data.Instance = SML::SetupInstance(VtxHeap, IdxHeap, IdxCount, Material,
-                                          SML::Command_InstanceFreeHeap);
-    strncpy(E->Name, Identifier, 63);
+    // WARN: Should use the new API to create an instance.
 
-    SML::UpdateInstance(E->Position, E->Data.Instance);
+    E->Type     = SmlEntity_Instance;
+    E->Position = Position;
+    E->Material = Material;
+    E->Alive    = true;
+
+    strncpy(E->Name, Identifier, 63);
 
     return Id;
 }
@@ -113,7 +116,6 @@ Sml_UpdateEntity(sml_entity_id EntityId)
 
     case SmlEntity_Instance:
     {
-        SML::UpdateInstance(E->Position, E->Data.Instance);
     } break;
 
     case SmlEntity_Instanced:

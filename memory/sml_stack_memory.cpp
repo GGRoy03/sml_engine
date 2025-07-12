@@ -1,4 +1,4 @@
-// TODO: Simplify this code.
+// TODO: Simplify this code | Add coalescing
 
 struct sml_heap_block
 {

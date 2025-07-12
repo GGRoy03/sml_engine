@@ -4,6 +4,9 @@
 
 using sml_bit_field = u32;
 
+enum class material : sml_u32 {};
+enum class instance : sml_u32 {};
+
 enum SmlRenderer_Backend
 {
     SmlRenderer_None,
@@ -45,12 +48,11 @@ struct sml_material_constants
 };
 
 
-struct sml_renderer;
 using sml_renderer_entry_function = void(*)();
+static sml_renderer_entry_function Playback;
 
-// NOTE: I would be nice to get the actual type via a template of some sorts.
-// It would reduce the amounts of random casts all around the code. Could
-// even remove SizeOfType and simplify the logic.
+// NOTE: Use slot maps? They are templated..
+// This is legacy.
 struct sml_backend_resource
 {
     void   *Data;
@@ -66,6 +68,7 @@ struct frame_rendering_data
 
 struct sml_renderer
 {
+    // Commands
     void  *CommandPushBase;
     size_t CommandPushSize;
     size_t CommandPushCapacity;
@@ -73,14 +76,14 @@ struct sml_renderer
     // Misc data
     frame_rendering_data FrameData;
 
+    // Backend
+    void *Backend;
+
     // Backend Resources
     sml_backend_resource Materials;
     sml_backend_resource Groups;
     sml_backend_resource Instances;
     sml_backend_resource Instanced;
-
-    // Entry point
-    sml_renderer_entry_function Playback;
 };
 
 static sml_renderer* Renderer;

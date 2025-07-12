@@ -42,6 +42,7 @@ static dx11_context Dx11;
 // Directx11 Files
 // ===================================
 
+#include "dx11_resource.cpp"
 #include "dx11_playback.cpp"
 
 // ===================================
@@ -129,8 +130,7 @@ Dx11_Initialize(sml_window Window)
 
     using namespace SML;
 
-    auto *DX11Renderer     = (sml_renderer*)malloc(sizeof(sml_renderer));
-    DX11Renderer->Playback = SML::Dx11_Playback;
+    auto *DX11Renderer = (sml_renderer*)malloc(sizeof(sml_renderer));
 
     DX11Renderer->Materials.Count      = 0;
     DX11Renderer->Materials.Data       = malloc(sizeof(dx11_material) * 10);
@@ -148,6 +148,7 @@ Dx11_Initialize(sml_window Window)
     DX11Renderer->Instanced.SizeOfType = sizeof(dx11_instanced);
 
     Renderer = DX11Renderer;
+    Playback = SML::Dx11_Playback;
 
     ImGui_ImplDX11_Init(Dx11.Device, Dx11.Context);
 }

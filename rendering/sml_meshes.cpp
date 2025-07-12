@@ -1,16 +1,19 @@
+namespace SML
+{
+
 // ===========================================
 // Type Definitions
 // ==========================================
 
-enum class sml_mesh_id : sml_u32 {};
+enum class mesh_id : sml_u32 {};
 
-struct sml_vertex
+struct vertex
 {
     sml_vector3 Position;
     sml_vector3 Normal;
     sml_vector2 UV;
 
-    sml_vertex(sml_vector3 _Position, sml_vector3 _Normal, sml_vector2 _UV)
+    vertex(sml_vector3 _Position, sml_vector3 _Normal, sml_vector2 _UV)
     {
         this->Position = _Position;
         this->Normal   = _Normal;
@@ -18,7 +21,7 @@ struct sml_vertex
     }
 };
 
-struct sml_vertex_color
+struct vertex_color
 {
     sml_vector3 Position;
     sml_vector3 Normal;
@@ -26,7 +29,7 @@ struct sml_vertex_color
 };
 
 template <typename V, typename I>
-struct sml_mesh
+struct mesh
 {
     sml_heap_block VtxHeap;
     sml_heap_block IdxHeap;
@@ -34,8 +37,8 @@ struct sml_mesh
     V *VtxData;
     I *IdxData;
 
-    sml_mesh(){};
-    sml_mesh(sml_u32 VtxCount, sml_u32 IdxCount)
+    mesh(){};
+    mesh(sml_u32 VtxCount, sml_u32 IdxCount)
     {
         this->VtxHeap = SmlMemory.Allocate(VtxCount * sizeof(V));
         this->IdxHeap = SmlMemory.Allocate(IdxCount * sizeof(I));
@@ -66,10 +69,9 @@ struct sml_mesh
     {
         return sml_u32(this->IdxHeap.Size / sizeof(I));
     }
-
 };
 
-struct sml_mesh_record
+struct mesh_record
 {
     // Meta-data
     char Name[32];
@@ -83,24 +85,23 @@ struct sml_mesh_record
 // Global Variables
 // ==========================================
 
-// NOTE: Everything ends up being a global...
-sml_slot_map<sml_mesh_record, sml_u32> SmlMeshes;
+static slot_map<mesh_record, sml_u32> SmlMeshes;
 
 // ===========================================
 // User API
 // ==========================================
 
 template <typename V, typename I>
-static sml_mesh_id
-Sml_RecordMesh(sml_mesh<V, I> Mesh, const char* Name)
+static mesh_id
+RecordMesh(mesh<V, I> Mesh, const char* Name)
 {
-    // NOTE: Not really sure.
+    // WARN: Bad?
     if(!SmlMeshes.Data && !SmlMeshes.FreeList)
     {
-        SmlMeshes = sml_slot_map<sml_mesh_record, sml_u32>(10);
+        SmlMeshes = slot_map<mesh_record, sml_u32>(10);
     }
 
-    sml_mesh_record Record = {};
+    mesh_record Record = {};
     Record.VtxHeap = Mesh.VtxHeap;
     Record.IdxHeap = Mesh.IdxHeap;
 
@@ -108,18 +109,18 @@ Sml_RecordMesh(sml_mesh<V, I> Mesh, const char* Name)
     if(NameLength > 31) NameLength = 31;
     memcpy(Record.Name, Name, NameLength);
 
-    sml_mesh_id Id = sml_mesh_id(SmlMeshes.Emplace(Record));
+    mesh_id Id = mesh_id(SmlMeshes.Emplace(Record));
 
     return Id;
 }
 
 template <typename V, typename I>
-static sml_mesh<V, I>
-Sml_GetMesh(sml_mesh_id Id)
+static mesh<V, I>
+GetMesh(mesh_id Id)
 {
-    sml_mesh_record Record = SmlMeshes[sml_u32(Id)];
+    mesh_record Record = SmlMeshes[sml_u32(Id)];
 
-    sml_mesh<V, I> Mesh = {};
+    mesh<V, I> Mesh = {};
     Mesh.VtxHeap = Record.VtxHeap;
     Mesh.IdxHeap = Record.IdxHeap;
     Mesh.VtxData = (V*)Mesh.VtxHeap.Data;
@@ -128,66 +129,68 @@ Sml_GetMesh(sml_mesh_id Id)
     return Mesh;
 }
 
-static sml_mesh<sml_vertex, sml_u32>
-Sml_GetCubeMesh()
+static mesh<vertex, sml_u32>
+GetCubeMesh()
 {
     const sml_u32 VtxCount = 24;
     const sml_u32 IdxCount = 32;
 
-    auto Mesh = sml_mesh<sml_vertex, sml_u32>(VtxCount, IdxCount);
-    Mesh.VtxData = (sml_vertex*)Mesh.VtxHeap.Data;
+    auto Mesh = mesh<vertex, sml_u32>(VtxCount, IdxCount);
+    Mesh.VtxData = (vertex*)Mesh.VtxHeap.Data;
     Mesh.IdxData = (sml_u32*)Mesh.IdxHeap.Data;
 
     sml_u32 V = 0;
     sml_u32 I = 0;
 
     // Front face
-    Mesh.VtxData[V++] = sml_vertex({-0.5f,-0.5f,0.5f},{0.0f,0.0f,1.0f},{0.0f,1.0f});
-    Mesh.VtxData[V++] = sml_vertex({ 0.5f,-0.5f,0.5f},{0.0f,0.0f,1.0f},{1.0f,1.0f});
-    Mesh.VtxData[V++] = sml_vertex({ 0.5f, 0.5f,0.5f},{0.0f,0.0f,1.0f},{1.0f,0.0f});
-    Mesh.VtxData[V++] = sml_vertex({-0.5f, 0.5f,0.5f},{0.0f,0.0f,1.0f},{0.0f,0.0f});
+    Mesh.VtxData[V++] = vertex({-0.5f,-0.5f,0.5f},{0.0f,0.0f,1.0f},{0.0f,1.0f});
+    Mesh.VtxData[V++] = vertex({ 0.5f,-0.5f,0.5f},{0.0f,0.0f,1.0f},{1.0f,1.0f});
+    Mesh.VtxData[V++] = vertex({ 0.5f, 0.5f,0.5f},{0.0f,0.0f,1.0f},{1.0f,0.0f});
+    Mesh.VtxData[V++] = vertex({-0.5f, 0.5f,0.5f},{0.0f,0.0f,1.0f},{0.0f,0.0f});
     Mesh.IdxData[I++] = 0; Mesh.IdxData[I++] = 1; Mesh.IdxData[I++] = 2;
     Mesh.IdxData[I++] = 0; Mesh.IdxData[I++] = 2; Mesh.IdxData[I++] = 3;
 
     // Back face
-    Mesh.VtxData[V++] = sml_vertex({ 0.5f,-0.5f,-0.5f},{0.0f,0.0f,-1.0f},{0.0f,1.0f});
-    Mesh.VtxData[V++] = sml_vertex({-0.5f,-0.5f,-0.5f},{0.0f,0.0f,-1.0f},{1.0f,1.0f});
-    Mesh.VtxData[V++] = sml_vertex({-0.5f, 0.5f,-0.5f},{0.0f,0.0f,-1.0f},{1.0f,0.0f});
-    Mesh.VtxData[V++] = sml_vertex({ 0.5f, 0.5f,-0.5f},{0.0f,0.0f,-1.0f},{0.0f,0.0f});
+    Mesh.VtxData[V++] = vertex({ 0.5f,-0.5f,-0.5f},{0.0f,0.0f,-1.0f},{0.0f,1.0f});
+    Mesh.VtxData[V++] = vertex({-0.5f,-0.5f,-0.5f},{0.0f,0.0f,-1.0f},{1.0f,1.0f});
+    Mesh.VtxData[V++] = vertex({-0.5f, 0.5f,-0.5f},{0.0f,0.0f,-1.0f},{1.0f,0.0f});
+    Mesh.VtxData[V++] = vertex({ 0.5f, 0.5f,-0.5f},{0.0f,0.0f,-1.0f},{0.0f,0.0f});
     Mesh.IdxData[I++] = 4; Mesh.IdxData[I++] = 5; Mesh.IdxData[I++] = 6;
     Mesh.IdxData[I++] = 4; Mesh.IdxData[I++] = 6; Mesh.IdxData[I++] = 7;
 
     // Left face
-    Mesh.VtxData[V++] = sml_vertex({-0.5f,-0.5f,-0.5f},{-1.0f,0.0f,0.0f},{0.0f,1.0f});
-    Mesh.VtxData[V++] = sml_vertex({-0.5f,-0.5f, 0.5f},{-1.0f,0.0f,0.0f},{1.0f,1.0f});
-    Mesh.VtxData[V++] = sml_vertex({-0.5f, 0.5f, 0.5f},{-1.0f,0.0f,0.0f},{1.0f,0.0f});
-    Mesh.VtxData[V++] = sml_vertex({-0.5f, 0.5f,-0.5f},{-1.0f,0.0f,0.0f},{0.0f,0.0f});
+    Mesh.VtxData[V++] = vertex({-0.5f,-0.5f,-0.5f},{-1.0f,0.0f,0.0f},{0.0f,1.0f});
+    Mesh.VtxData[V++] = vertex({-0.5f,-0.5f, 0.5f},{-1.0f,0.0f,0.0f},{1.0f,1.0f});
+    Mesh.VtxData[V++] = vertex({-0.5f, 0.5f, 0.5f},{-1.0f,0.0f,0.0f},{1.0f,0.0f});
+    Mesh.VtxData[V++] = vertex({-0.5f, 0.5f,-0.5f},{-1.0f,0.0f,0.0f},{0.0f,0.0f});
     Mesh.IdxData[I++] = 8;  Mesh.IdxData[I++] = 9;  Mesh.IdxData[I++] = 10;
     Mesh.IdxData[I++] = 8;  Mesh.IdxData[I++] = 10; Mesh.IdxData[I++] = 11;
 
     // Right face
-    Mesh.VtxData[V++] = sml_vertex({0.5f,-0.5f, 0.5f},{1.0f,0.0f,0.0f},{0.0f,1.0f});
-    Mesh.VtxData[V++] = sml_vertex({0.5f,-0.5f,-0.5f},{1.0f,0.0f,0.0f},{1.0f,1.0f});
-    Mesh.VtxData[V++] = sml_vertex({0.5f, 0.5f,-0.5f},{1.0f,0.0f,0.0f},{1.0f,0.0f});
-    Mesh.VtxData[V++] = sml_vertex({0.5f, 0.5f, 0.5f},{1.0f,0.0f,0.0f},{0.0f,0.0f});
+    Mesh.VtxData[V++] = vertex({0.5f,-0.5f, 0.5f},{1.0f,0.0f,0.0f},{0.0f,1.0f});
+    Mesh.VtxData[V++] = vertex({0.5f,-0.5f,-0.5f},{1.0f,0.0f,0.0f},{1.0f,1.0f});
+    Mesh.VtxData[V++] = vertex({0.5f, 0.5f,-0.5f},{1.0f,0.0f,0.0f},{1.0f,0.0f});
+    Mesh.VtxData[V++] = vertex({0.5f, 0.5f, 0.5f},{1.0f,0.0f,0.0f},{0.0f,0.0f});
     Mesh.IdxData[I++] = 12; Mesh.IdxData[I++] = 13; Mesh.IdxData[I++] = 14;
     Mesh.IdxData[I++] = 12; Mesh.IdxData[I++] = 14; Mesh.IdxData[I++] = 15;
 
     // Top face
-    Mesh.VtxData[V++] = sml_vertex({-0.5f,0.5f, 0.5f},{0.0f,1.0f,0.0f},{0.0f,1.0f});
-    Mesh.VtxData[V++] = sml_vertex({ 0.5f,0.5f, 0.5f},{0.0f,1.0f,0.0f},{1.0f,1.0f});
-    Mesh.VtxData[V++] = sml_vertex({ 0.5f,0.5f,-0.5f},{0.0f,1.0f,0.0f},{1.0f,0.0f});
-    Mesh.VtxData[V++] = sml_vertex({-0.5f,0.5f,-0.5f},{0.0f,1.0f,0.0f},{0.0f,0.0f});
+    Mesh.VtxData[V++] = vertex({-0.5f,0.5f, 0.5f},{0.0f,1.0f,0.0f},{0.0f,1.0f});
+    Mesh.VtxData[V++] = vertex({ 0.5f,0.5f, 0.5f},{0.0f,1.0f,0.0f},{1.0f,1.0f});
+    Mesh.VtxData[V++] = vertex({ 0.5f,0.5f,-0.5f},{0.0f,1.0f,0.0f},{1.0f,0.0f});
+    Mesh.VtxData[V++] = vertex({-0.5f,0.5f,-0.5f},{0.0f,1.0f,0.0f},{0.0f,0.0f});
     Mesh.IdxData[I++] = 16; Mesh.IdxData[I++] = 17; Mesh.IdxData[I++] = 18;
     Mesh.IdxData[I++] = 16; Mesh.IdxData[I++] = 18; Mesh.IdxData[I++] = 19;
 
     // Bottom face
-    Mesh.VtxData[V++] = sml_vertex({-0.5f,-0.5f,-0.5f},{0.0f,-1.0f,0.0f},{0.0f,1.0f});
-    Mesh.VtxData[V++] = sml_vertex({ 0.5f,-0.5f,-0.5f},{0.0f,-1.0f,0.0f},{1.0f,1.0f});
-    Mesh.VtxData[V++] = sml_vertex({ 0.5f,-0.5f, 0.5f},{0.0f,-1.0f,0.0f},{1.0f,0.0f});
-    Mesh.VtxData[V++] = sml_vertex({-0.5f,-0.5f, 0.5f},{0.0f,-1.0f,0.0f},{0.0f,0.0f});
+    Mesh.VtxData[V++] = vertex({-0.5f,-0.5f,-0.5f},{0.0f,-1.0f,0.0f},{0.0f,1.0f});
+    Mesh.VtxData[V++] = vertex({ 0.5f,-0.5f,-0.5f},{0.0f,-1.0f,0.0f},{1.0f,1.0f});
+    Mesh.VtxData[V++] = vertex({ 0.5f,-0.5f, 0.5f},{0.0f,-1.0f,0.0f},{1.0f,0.0f});
+    Mesh.VtxData[V++] = vertex({-0.5f,-0.5f, 0.5f},{0.0f,-1.0f,0.0f},{0.0f,0.0f});
     Mesh.IdxData[I++] = 20; Mesh.IdxData[I++] = 21; Mesh.IdxData[I++] = 22;
     Mesh.IdxData[I++] = 20; Mesh.IdxData[I++] = 22; Mesh.IdxData[I++] = 23;
 
     return Mesh;
 }
+
+} // namespace SML
