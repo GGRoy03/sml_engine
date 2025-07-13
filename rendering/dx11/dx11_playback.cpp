@@ -16,13 +16,14 @@ struct dx11_instanced
 // Internal Helpers
 // ===================================
 
-// NOTE: This is renderer agnostic for now.
-
 static inline void
 Dx11_SetMaterialContext(context_command_material *Payload)
 {
-    Renderer->Context                    = RenderingContext_Material;
-    Renderer->ContextData.ShaderFeatures = Payload->ShaderFeatures;
+    dx11_backend *Backend = (dx11_backend*)Renderer->Backend;
+
+    Backend->MaterialContext.Handle   = Payload->Material;
+    Backend->MaterialContext.Features = Payload->ShaderFeatures;
+    Backend->MaterialContext.Cached   = {};
 }
 
 static void

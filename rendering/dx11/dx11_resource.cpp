@@ -34,10 +34,19 @@ struct dx11_instance
     ID3D11Buffer *PerObject;
 };
 
+struct dx11_material_context
+{
+    material      Handle;
+    sml_bit_field Features;
+    dx11_material Cached; // NOTE: We don't use this yet.
+};
+
 struct dx11_backend
 {
     slot_map<dx11_material, material> Materials;
     slot_map<dx11_instance, instance> Instances;
+
+    dx11_material_context MaterialContext; 
 };
 
 // ===================================
@@ -226,14 +235,14 @@ Dx11_UpdateMaterial(update_command_material *Payload)
     HRESULT Status = S_OK;
 
     dx11_backend  *Backend  = (dx11_backend*)Renderer->Backend;
-    dx11_material *Material = &Backend->Materials[Payload->Material];
+    dx11_material *Material = &Backend->Materials[Backend->MaterialContext.Handle];
 
     if(!Material->Constants)
     {
         D3D_SHADER_MACRO Defines[ShaderFeat_Count + 1] = {};
 
         sml_u32       Enabled = 0;
-        sml_bit_field Feats   = Renderer->ContextData.ShaderFeatures;
+        sml_bit_field Feats   = Backend->MaterialContext.Features;
 
         if (Feats & ShaderFeat_AlbedoMap)
         {
@@ -329,8 +338,7 @@ Dx11_UpdateMaterial(update_command_material *Payload)
 static void
 Dx11_UpdateInstance(update_command_instance *Payload)
 {
-    dx11_backend *Backend = (dx11_backend*)Renderer->Backend;
-
+    dx11_backend  *Backend  = (dx11_backend*)Renderer->Backend;
     dx11_instance *Instance = &Backend->Instances[Payload->Instance];
 
     if(!Instance->PerObject)

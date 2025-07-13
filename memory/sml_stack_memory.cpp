@@ -168,7 +168,7 @@ struct sml_memory
 
         if (NextAt != this->Invalid)
         {
-            this->NextArray[Block.IntIdx] = this->NextArray[InsertAt];
+            this->NextArray[Block.IntIdx] = NextAt;
             this->PrevArray[NextAt] = Block.IntIdx;
         }
         else

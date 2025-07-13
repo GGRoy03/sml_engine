@@ -33,6 +33,7 @@ struct command_header
 
 struct context_command_material
 {
+    material      Material;
     sml_bit_field ShaderFeatures;
 };
 
@@ -105,10 +106,8 @@ PushRenderCommand(command_header *Header, void *Payload, sml_u32 PayloadSize)
 // User API
 // ===================================
 
-// NOTE: Accept flags as well?
-
 static void
-SetMaterialContext(sml_bit_field ShaderFeatures)
+SetMaterialContext(material Material, sml_bit_field ShaderFeatures)
 {
     command_header Header = {};
     Header.Type = ContextCommand_Material;
@@ -116,13 +115,13 @@ SetMaterialContext(sml_bit_field ShaderFeatures)
 
     context_command_material Payload;
     Payload.ShaderFeatures = ShaderFeatures;
+    Payload.Material       = Material;
 
     PushRenderCommand(&Header, &Payload, Header.Size);
 }
 
 static void
-UpdateMaterial(material Material, texture Texture, Material_Type Type, 
-               sml_bit_field Flags)
+UpdateMaterial(texture Texture, Material_Type Type, sml_bit_field Flags)
 {
     command_header Header = {};
     Header.Type = UpdateCommand_Material;
@@ -132,7 +131,6 @@ UpdateMaterial(material Material, texture Texture, Material_Type Type,
     Payload.Texture  = Texture;
     Payload.Type     = Type;
     Payload.Flags    = Flags;
-    Payload.Material = Material;
 
     PushRenderCommand(&Header, &Payload, Header.Size);
 }

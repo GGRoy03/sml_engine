@@ -40,15 +40,6 @@ enum Material_Type
     MaterialType_Count,
 };
 
-enum RenderingContext_Type
-{
-    RenderingContext_None,
-
-    RenderingContext_Material,
-};
-
-#define MATERIAL_TYPE_TO_SLOT(M) (M-1)
-
 struct texture
 {
     sml_u8 *Pixels;
@@ -59,15 +50,6 @@ struct texture
     sml_i32 Channels;
 
     sml_heap_block PixelHeap;
-};
-
-struct material_texture
-{
-    sml_u8       *Pixels;
-    size_t        DataSize;
-    sml_i32       Width, Height;
-    sml_i32       Pitch, Channels;
-    Material_Type MaterialType;
 };
 
 struct material_constants
@@ -93,12 +75,6 @@ struct renderer
     size_t CommandPushCapacity;
 
     frame_rendering_data FrameData;
-
-    RenderingContext_Type Context;
-    union
-    {
-        sml_bit_field ShaderFeatures;
-    } ContextData;
 
     void *Backend;
 };
