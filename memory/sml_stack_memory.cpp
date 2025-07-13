@@ -59,8 +59,8 @@ struct sml_memory
         memset(this->PushBase , 0, HeapSize);
         memset(this->FreeList , 0, this->FreeListSize * sizeof(sml_heap_block));
         memset(this->IdxStack , 0, this->FreeListSize * sizeof(sml_u32));
-        memset(this->NextArray, 0, this->FreeListSize * sizeof(sml_u32));
-        memset(this->PrevArray, 0, this->FreeListSize * sizeof(sml_u32));
+        memset(this->NextArray, this->Invalid, this->FreeListSize * sizeof(sml_u32));
+        memset(this->PrevArray, this->Invalid, this->FreeListSize * sizeof(sml_u32));
     }
 
     sml_heap_block Allocate(size_t RequestedSize)
@@ -159,21 +159,35 @@ struct sml_memory
     void InsertFreeBlock(sml_heap_block Block)
     {
         sml_u32 InsertAt = this->Head;
-        while(this->FreeList[InsertAt].At < Block.At)
+        while(InsertAt != this->Invalid && this->FreeList[InsertAt].At < Block.At)
         {
             InsertAt = this->NextArray[InsertAt];
         }
 
-        sml_u32 NextAt = this->NextArray[InsertAt];
+        sml_u32 NextAt = InsertAt == this->Invalid ? this->Invalid : this->NextArray[InsertAt];
 
-        this->PrevArray[Block.IntIdx] = InsertAt;
-        this->NextArray[Block.IntIdx] = this->NextArray[InsertAt];
+        if (NextAt != this->Invalid)
+        {
+            this->NextArray[Block.IntIdx] = this->NextArray[InsertAt];
+            this->PrevArray[NextAt] = Block.IntIdx;
+        }
+        else
+        {
+            this->Tail = Block.IntIdx;
+        }
 
-        this->PrevArray[NextAt]   = Block.IntIdx;
-        this->NextArray[InsertAt] = Block.IntIdx;
+        if (InsertAt != this->Invalid)
+        {
+            this->PrevArray[Block.IntIdx] = InsertAt;
+            this->NextArray[InsertAt] = Block.IntIdx;
+        }
+        else
+        {
+            this->Head = Block.IntIdx;
+        }
 
         if(Block.Size > this->BiggestFreeBlock) this->BiggestFreeBlock = Block.Size;
     }
 };
 
-static auto SmlMemory = sml_memory(Sml_Kilobytes(50));
+static auto SmlMemory = sml_memory(Sml_Megabytes(50));

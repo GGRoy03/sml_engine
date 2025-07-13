@@ -16,19 +16,18 @@ enum SmlEntity_Type
 struct sml_entity
 {
     // Core-data
-    SmlEntity_Type Type;
-    sml_vector3    Position;
-    sml_u32        Material;
+    sml_vector3 Position;
+    sml_u32     Material;
 
     // Meta-data
     char Name[64];
     bool Alive;
 
     // Backend-specific data
+    SmlEntity_Type Type;
     union
     {
-        sml_instance  Instance;
-        sml_instanced Instanced;
+        instance Instance;
     } Data;
 };
 

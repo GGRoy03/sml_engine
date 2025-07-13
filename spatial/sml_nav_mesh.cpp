@@ -25,7 +25,7 @@ struct navmesh_debug_manager
 static sml_dynamic_array<nav_poly>
 BuildNavMesh(sml_vector3 *Points, sml_u32 *Indices, sml_u32 IdxCount, sml_f32 SlopeDegree);
 
-static sml_instance
+static instance
 CreateNavMeshDebugInstance(nav_poly *NavPolygons, sml_u32 Count);
 
 static void
@@ -264,7 +264,7 @@ BuildNavPolygons(sml_dynamic_array<sml_dynamic_array<sml_u32>> &Clusters,
     return NavPolygons;
 }
 
-static sml_instance
+static instance 
 CreateNavMeshDebugInstance(nav_poly *NavPolygons, sml_u32 Count)
 {
     auto DebugVtx = sml_dynamic_array<vertex_color>(0);
@@ -309,7 +309,7 @@ CreateNavMeshDebugInstance(nav_poly *NavPolygons, sml_u32 Count)
     // WARN: Use new API to create the instance.
 
 
-    return sml_instance(0);
+    return instance(0);
 }
 
 // ===================================

@@ -18,11 +18,13 @@ typedef double sml_f64;
 #define Sml_Megabytes(Amount) (Kilobytes(Amount) * 1024)
 #define Sml_Gigabytes(Amount) (Megabytes(Amount) * 1024)
 
-// WARN: Why is this here?
-enum class sml_instance  : sml_u32 {};
-enum class sml_instanced : sml_u32 {};
-
 #define STB_IMAGE_IMPLEMENTATION
+#define STBI_NO_PSD
+#define STBI_NO_TGA
+#define STBI_NO_GIF
+#define STBI_NO_HDR
+#define STBI_NO_PIC
+#define STBI_NO_PNM
 #include "third_party/stb_image.h"
 
 #define IMGUI_DISABLE_CHECKVERSION

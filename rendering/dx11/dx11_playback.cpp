@@ -16,8 +16,7 @@ struct dx11_instanced
 // Internal Helpers
 // ===================================
 
-// NOTE: This should do more? Like create the states? (Shaders and all that)
-// This is still a prototype.
+// NOTE: This is renderer agnostic for now.
 
 static inline void
 Dx11_SetMaterialContext(context_command_material *Payload)
@@ -62,6 +61,33 @@ Dx11_DrawClearScreen(draw_command_clear* Payload)
 }
 
 static void
+Dx11_DrawInstance(draw_command_instance *Payload)
+{
+    dx11_backend *Backend  = (dx11_backend*)Renderer->Backend;
+    dx11_instance Instance = Backend->Instances[Payload->Instance];
+    dx11_material Material = Backend->Materials[Instance.Data.Material];
+    Sml_Assert(Instance.PerObject && Material.Constants);
+
+    auto *Ctx = Dx11.Context;
+
+    UINT Offset = 0;
+    Ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    Ctx->IASetInputLayout(Material.Layout);
+    Ctx->IASetVertexBuffers(0, 1, &Instance.Buffers.Vtx, &Material.Stride, &Offset);
+    Ctx->IASetIndexBuffer(Instance.Buffers.Idx, DXGI_FORMAT_R32_UINT, 0);
+
+    Ctx->VSSetShader(Material.VShader, nullptr, 0);
+    Ctx->VSSetConstantBuffers(1, 1, &Instance.PerObject);
+
+    Ctx->PSSetShader(Material.PShader, nullptr, 0);
+    Ctx->PSSetSamplers(0, 1, &Material.SamplerState);
+    Ctx->PSSetShaderResources(0, Material.SampledCount, Material.Sampled);
+    Ctx->PSSetConstantBuffers(2, 1, &Material.Constants);
+
+    Ctx->DrawIndexed(Instance.Buffers.IdxCnt, 0, 0);
+}
+
+static void
 Dx11_Playback()
 {
     ID3D11DeviceContext *Ctx = Dx11.Context;
@@ -102,14 +128,20 @@ Dx11_Playback()
 
         case UpdateCommand_Material:
         {
-            auto *Payload = (update_command_material*)(CmdPtr + Offset);
+            auto* Payload = (update_command_material*)(CmdPtr + Offset);
             Dx11_UpdateMaterial(Payload);
-        };
+        } break;
 
         case DrawCommand_Clear:
         {
             auto *Payload = (draw_command_clear*)(CmdPtr + Offset);
             Dx11_DrawClearScreen(Payload);
+        } break;
+
+        case DrawCommand_Instance:
+        {
+            auto* Payload = (draw_command_instance*)(CmdPtr + Offset);
+            Dx11_DrawInstance(Payload);
         } break;
 
         default:

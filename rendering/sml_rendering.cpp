@@ -88,22 +88,18 @@ struct frame_rendering_data
 
 struct renderer
 {
-    // Commands
     void  *CommandPushBase;
     size_t CommandPushSize;
     size_t CommandPushCapacity;
 
-    // Misc data
     frame_rendering_data FrameData;
 
-    // Context
     RenderingContext_Type Context;
     union
     {
         sml_bit_field ShaderFeatures;
     } ContextData;
 
-    // Backend
     void *Backend;
 };
 
@@ -112,7 +108,7 @@ static renderer* Renderer;
 struct instance_data
 {
     sml_vector3 Position;
-    sml_u32     Material;
+    material    Material;
 };
 
 // ===================================
@@ -254,18 +250,27 @@ Sml_CreateRenderer(Renderer_Backend Backend, sml_window Window)
     return Renderer;
 }
 
-static material_texture
-LoadMaterialTexture(const char *FileName, Material_Type MaterialType)
+static texture
+LoadTexture(const char *FileName)
 {
-    material_texture MatText = {};
+    texture Tex = {};
 
-    MatText.Pixels = stbi_load(FileName, &MatText.Width, &MatText.Height,
-                               &MatText.Channels, 4);
-    Sml_Assert(MatText.Pixels);
+    if (!stbi_info(FileName, &Tex.Width, &Tex.Height, &Tex.Channels))
+    {
+        Sml_Assert(!"Failed to query texture information.");
+        return Tex;
+    }
 
-    MatText.Pitch        = MatText.Width * 4;
-    MatText.MaterialType = MaterialType;
-    MatText.DataSize     = MatText.Pitch * MatText.Height;
+    Tex.Pitch     = Tex.Width * 4;
+    Tex.DataSize  = Tex.Width * Tex.Height * 4;
+    Tex.PixelHeap = SmlMemory.Allocate(Tex.DataSize);
 
-    return MatText;
+    Tex.Pixels = stbi_load(FileName, &Tex.Width, &Tex.Height, &Tex.Channels, 4);
+    Sml_Assert(Tex.Pixels);
+
+    memcpy(Tex.PixelHeap.Data, Tex.Pixels, Tex.DataSize);
+    stbi_image_free(Tex.Pixels);
+    Tex.Pixels = (sml_u8*)Tex.PixelHeap.Data;
+
+    return Tex;
 }

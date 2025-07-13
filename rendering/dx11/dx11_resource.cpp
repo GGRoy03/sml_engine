@@ -15,6 +15,7 @@ struct dx11_material
     ID3D11VertexShader       *VShader;
     ID3D11PixelShader        *PShader;
     ID3D11ShaderResourceView *Sampled[MaterialType_Count];
+    sml_u32                   SampledCount;
     ID3D11SamplerState       *SamplerState;
     ID3D11Buffer             *Constants;
 };
@@ -287,8 +288,9 @@ Dx11_UpdateMaterial(update_command_material *Payload)
         }
     }
 
-    auto *ResourceView = Material->Sampled[0];
-    if(!ResourceView)
+    // BUG: Does not query the correct index ( We do not have a scheme)
+    auto **ResourceView = &Material->Sampled[0];
+    if(!*ResourceView)
     {
         texture Texture = Payload->Texture;
 
@@ -310,7 +312,7 @@ Dx11_UpdateMaterial(update_command_material *Payload)
         Status = Dx11.Device->CreateTexture2D(&Desc, &InitData, &Tex2D);
         Sml_Assert(SUCCEEDED(Status));
 
-        Status = Dx11.Device->CreateShaderResourceView(Tex2D, nullptr, &ResourceView);
+        Status = Dx11.Device->CreateShaderResourceView(Tex2D, nullptr, ResourceView);
         Sml_Assert(SUCCEEDED(Status));
 
         Dx11_Release(Tex2D);
@@ -319,6 +321,8 @@ Dx11_UpdateMaterial(update_command_material *Payload)
         {
             SmlMemory.Free(Texture.PixelHeap);
         }
+
+        ++Material->SampledCount;
     }
 }
 

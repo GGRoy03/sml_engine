@@ -29,6 +29,7 @@ struct dx11_context
 //  Global variables
 // ===================================
 
+// NOTE: Move this to backend?
 static dx11_context Dx11;
 
 // ===================================
@@ -135,9 +136,15 @@ Dx11_Initialize(sml_window Window)
                                                  &Dx11.DepthView);
     Sml_Assert(SUCCEEDED(Status));
 
-    auto *DX11Renderer = (renderer*)SmlMemory.Allocate(sizeof(renderer)).Data;
+    auto *Dx11_Renderer = (renderer*)SmlMemory.Allocate(sizeof(renderer)).Data;
+    auto *Dx11_Backend  = (dx11_backend*)SmlMemory.Allocate(sizeof(dx11_backend)).Data;
 
-    Renderer = DX11Renderer;
+    Dx11_Backend->Materials = slot_map<dx11_material, material>(10);
+    Dx11_Backend->Instances = slot_map<dx11_instance, instance>(10);
+
+    Dx11_Renderer->Backend = Dx11_Backend;
+
+    Renderer = Dx11_Renderer;
     Playback = Dx11_Playback;
 
     ImGui_ImplDX11_Init(Dx11.Device, Dx11.Context);

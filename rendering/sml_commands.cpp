@@ -16,6 +16,7 @@ enum RenderCommand_Type
 
     // Draw
     DrawCommand_Clear,
+    DrawCommand_Instance,
 };
 
 enum RenderCommand_Flag
@@ -37,39 +38,26 @@ struct context_command_material
 
 struct update_command_material
 {
-    // Meta-Data
     texture       Texture;
     Material_Type Type;
 
-    // Misc
     sml_bit_field Flags;
 
-    // Handle
     material Material;
 };
 
 struct update_command_instance
 {
-    // Backend
     material Material;
 
-    // Meta-Data
     sml_heap_block VtxHeap;
     sml_heap_block IdxHeap;
     sml_u32        IdxCount;
     sml_vector3    Position;
 
-    // Misc
     sml_bit_field Flags;
 
-    // Handle
     instance Instance;
-};
-
-struct update_command_instanced_data
-{
-    sml_vector3  *Data;
-    sml_instanced Instanced;
 };
 
 struct update_command_camera
@@ -84,12 +72,7 @@ struct draw_command_clear
 
 struct draw_command_instance
 {
-    sml_instance Instance;
-};
-
-struct draw_command_instanced
-{
-    sml_instanced Instanced;
+    instance Instance;
 };
 
 // ===================================
@@ -121,6 +104,8 @@ PushRenderCommand(command_header *Header, void *Payload, sml_u32 PayloadSize)
 // ===================================
 // User API
 // ===================================
+
+// NOTE: Accept flags as well?
 
 static void
 SetMaterialContext(sml_bit_field ShaderFeatures)
@@ -228,6 +213,19 @@ DrawClearScreen(sml_vector4 Color)
 
     draw_command_clear Payload = {};
     Payload.Color = Color;
+
+    PushRenderCommand(&Header, &Payload, Header.Size);
+}
+
+static void
+DrawInstance(instance Instance)
+{
+    command_header Header = {};
+    Header.Type = DrawCommand_Instance;
+    Header.Size = sizeof(draw_command_instance);
+
+    draw_command_instance Payload = {};
+    Payload.Instance = Instance;
 
     PushRenderCommand(&Header, &Payload, Header.Size);
 }

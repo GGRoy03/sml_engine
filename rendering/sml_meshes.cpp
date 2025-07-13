@@ -130,7 +130,7 @@ static mesh<vertex, sml_u32>
 GetCubeMesh()
 {
     const sml_u32 VtxCount = 24;
-    const sml_u32 IdxCount = 32;
+    const sml_u32 IdxCount = 36;
 
     auto Mesh = mesh<vertex, sml_u32>(VtxCount, IdxCount);
     Mesh.VtxData = (vertex*)Mesh.VtxHeap.Data;
