@@ -18,7 +18,7 @@ struct strong_index
     }
 };
 
-using sml_bit_field = u32;
+using sml_bit_field = sml_u32;
 
 struct material_tag{};
 struct instance_tag{};

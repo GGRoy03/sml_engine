@@ -59,4 +59,7 @@ typedef double sml_f64;
 #include "spatial/sml_nav_mesh.cpp"
 #include "spatial/entity_test.cpp"
 
+// Debugging
+#include "rendering/debug/nav_mesh_ui.cpp"
+
 #pragma warning(pop)
