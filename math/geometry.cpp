@@ -47,10 +47,10 @@ struct sml_neighbor_tris
 struct sml_walkable_list
 {
     // List of triangles considered walkable
-    sml_dynamic_array<sml_walkable_tri> Walkable;
+    dynamic_array<sml_walkable_tri> Walkable;
 
     // An array of neighbor triangles for every walkable triangle
-    sml_dynamic_array<sml_neighbor_tris> Neighbors;
+    dynamic_array<sml_neighbor_tris> Neighbors;
 
     // Base mesh data
     sml_vector3 *Positions;
@@ -103,7 +103,7 @@ SmlInt_BuildWalkableList(sml_vector3 *Positions, sml_u32 *Indices, sml_u32 IdxCo
     List.Indices   = Indices;
 
     sml_u32 TriCount = IdxCount / 3;
-    List.Walkable    = sml_dynamic_array<sml_walkable_tri>(TriCount);
+    List.Walkable    = dynamic_array<sml_walkable_tri>(TriCount);
 
     List.SlopeThresold = cosf(SlopeDeg * (3.14158265f / 180.0f));
 
@@ -147,7 +147,7 @@ SmlInt_BuildWalkableList(sml_vector3 *Positions, sml_u32 *Indices, sml_u32 IdxCo
         }
     }
 
-    List.Neighbors = sml_dynamic_array<sml_neighbor_tris>(List.Walkable.Count);
+    List.Neighbors = dynamic_array<sml_neighbor_tris>(List.Walkable.Count);
 
     for (sml_u32 TriIdx = 0; TriIdx < List.Walkable.Count; ++TriIdx)
     {
@@ -175,18 +175,18 @@ SmlInt_BuildWalkableList(sml_vector3 *Positions, sml_u32 *Indices, sml_u32 IdxCo
     return List;
 }
 
-static sml_dynamic_array<sml_dynamic_array<sml_tri>>
+static dynamic_array<dynamic_array<sml_tri>>
 SmlInt_BuildPolygonClusters(sml_walkable_list *List)
 {
-    auto Visited  = sml_dynamic_array<bool>(List->Walkable.Count);
-    auto Clusters = sml_dynamic_array<sml_dynamic_array<sml_tri>>(0);
+    auto Visited  = dynamic_array<bool>(List->Walkable.Count);
+    auto Clusters = dynamic_array<dynamic_array<sml_tri>>(0);
     auto Stack    = sml_stack<sml_tri>(0);
 
     for(sml_u32 TriIdx = 0; TriIdx < List->Walkable.Count; TriIdx++)
     {
         if(Visited[TriIdx]) continue;
 
-        auto Cluster = sml_dynamic_array<sml_tri>(0);
+        auto Cluster = dynamic_array<sml_tri>(0);
 
         Stack.Push(TriIdx);
         Visited[TriIdx] = true;
@@ -226,11 +226,10 @@ SmlInt_BuildPolygonClusters(sml_walkable_list *List)
 // WARN:
 // 1) Is there a way to estime the amount of indices needed given a Polygon count?
 
-static sml_dynamic_array<sml_u32>
-SmlInt_Triangulate(sml_dynamic_array<sml_vector2> Polygon, 
-                   SmlTriangulate_Method Method)
+static dynamic_array<sml_u32>
+SmlInt_Triangulate(dynamic_array<sml_vector2> Polygon, SmlTriangulate_Method Method)
 {
-    auto IdxList = sml_dynamic_array<sml_u32>(0);
+    auto IdxList = dynamic_array<sml_u32>(0);
 
     switch(Method)
     {

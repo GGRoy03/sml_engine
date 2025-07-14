@@ -44,10 +44,10 @@ struct mesh
         this->IdxData = (I*)this->IdxHeap.Data;
     }
 
-    inline sml_dynamic_array<sml_vector3> PackPositions()
+    inline dynamic_array<sml_vector3> PackPositions()
     {
         auto Positions = 
-            sml_dynamic_array<sml_vector3>(sml_u32(this->VtxHeap.Size / sizeof(V)));
+            dynamic_array<sml_vector3>(sml_u32(this->VtxHeap.Size / sizeof(V)));
 
         for(sml_u32 Idx = 0; Idx < Positions.Capacity; Idx++)
         {

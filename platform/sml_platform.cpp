@@ -2,6 +2,9 @@
 // Type Definitions
 // ==========================================
 
+constexpr sml_u32 MaxNameLength = 256;
+constexpr sml_u32 MaxPathLength = 512;
+
 struct sml_window
 {
     void   *Handle;
@@ -25,6 +28,14 @@ struct sml_game_controller_input
     sml_game_button_state MouseButtons[5];
 };
 
+struct platform_file
+{
+    char                   Name[MaxNameLength];
+    char                   FullPath[MaxPathLength];
+    bool                   IsDir;
+    sml_u32                Parent;
+    dynamic_array<sml_u32> Children;
+};
 
 // ===========================================
 // User API
@@ -35,6 +46,9 @@ sml_window Sml_CreateWindow(sml_i32 Width, sml_i32 Height, const char *Title);
 bool Sml_UpdateWindow(sml_window *Window, sml_game_controller_input *Inputs);
 
 bool Sml_IsKeyDown(char Char);
+
+static dynamic_array<platform_file>
+Platform_FindAllFilesFrom(const char *Path);
 
 // ===========================================
 // Implementations

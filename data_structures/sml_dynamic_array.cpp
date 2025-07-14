@@ -1,7 +1,7 @@
 #include <type_traits> // static type checking
 
 template <typename T>
-struct sml_dynamic_array
+struct dynamic_array
 {
     static_assert(std::is_trivially_copyable<T>::value,
                   "sml_dynamic_array<T> requires T to be trivially copyable");
@@ -11,8 +11,8 @@ struct sml_dynamic_array
     sml_u32        Capacity;
     sml_heap_block Heap;
 
-    sml_dynamic_array(){};
-    sml_dynamic_array(sml_u32 InitialCount, bool ZeroInit = true)
+    dynamic_array(){};
+    dynamic_array(sml_u32 InitialCount, bool ZeroInit = true)
     {
         if(InitialCount == 0) InitialCount = 8;
 

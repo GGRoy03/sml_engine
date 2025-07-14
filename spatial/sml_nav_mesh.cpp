@@ -7,7 +7,7 @@ namespace SML
 
 struct nav_poly
 {
-    sml_dynamic_array<sml_vector3> Verts;
+    dynamic_array<sml_vector3> Verts;
 };
 
 // ===================================
@@ -18,13 +18,13 @@ struct nav_poly
 // WARN: 
 // 1) Leaks a lot of memory!
 
-static sml_dynamic_array<nav_poly>
-BuildNavPolygons(sml_dynamic_array<sml_dynamic_array<sml_u32>> &Clusters,
+static dynamic_array<nav_poly>
+BuildNavPolygons(dynamic_array<dynamic_array<sml_u32>> &Clusters,
                  sml_walkable_list *List)
 {
-    auto NavPolygons  = sml_dynamic_array<nav_poly>(Clusters.Count);
-    auto Boundary     = sml_dynamic_array<sml_tri_edge>(0);
-    auto LoopVertices = sml_dynamic_array<sml_point>(0);
+    auto NavPolygons  = dynamic_array<nav_poly>(Clusters.Count);
+    auto Boundary     = dynamic_array<sml_tri_edge>(0);
+    auto LoopVertices = dynamic_array<sml_point>(0);
 
     for(sml_u32 ClusterIdx = 0; ClusterIdx < Clusters.Count; ClusterIdx++)
     {
@@ -100,7 +100,7 @@ BuildNavPolygons(sml_dynamic_array<sml_dynamic_array<sml_u32>> &Clusters,
         }
 
         nav_poly NavPoly = {};
-        NavPoly.Verts = sml_dynamic_array<sml_vector3>(LoopVertices.Count);
+        NavPoly.Verts = dynamic_array<sml_vector3>(LoopVertices.Count);
 
         for(sml_u32 LoopIdx = 0; LoopIdx < LoopVertices.Count; LoopIdx++)
         {
@@ -123,8 +123,8 @@ BuildNavPolygons(sml_dynamic_array<sml_dynamic_array<sml_u32>> &Clusters,
 static instance 
 CreateNavMeshDebugInstance(nav_poly *NavPolygons, sml_u32 Count)
 {
-    auto DebugVtx = sml_dynamic_array<vertex_color>(0);
-    auto DebugIdx = sml_dynamic_array<sml_u32>(0);
+    auto DebugVtx = dynamic_array<vertex_color>(0);
+    auto DebugIdx = dynamic_array<sml_u32>(0);
 
     for(sml_u32 PolyIdx = 0; PolyIdx < Count; PolyIdx++)
     { 
@@ -141,7 +141,7 @@ CreateNavMeshDebugInstance(nav_poly *NavPolygons, sml_u32 Count)
             DebugVtx.Push(Vertex);
         }
 
-        auto Poly2D = sml_dynamic_array<sml_vector2>(Poly->Verts.Count);
+        auto Poly2D = dynamic_array<sml_vector2>(Poly->Verts.Count);
         for(sml_u32 VtxIdx = 0; VtxIdx < Poly->Verts.Count; VtxIdx++)
         {
             auto Pos2D = sml_vector2(Poly->Verts[VtxIdx].x, Poly->Verts[VtxIdx].z);
@@ -175,17 +175,17 @@ CreateNavMeshDebugInstance(nav_poly *NavPolygons, sml_u32 Count)
 // 1) This leaks quite a large amount of data (List, Clusters)
 // 2) Code is really ugly
 
-static sml_dynamic_array<nav_poly>
+static dynamic_array<nav_poly>
 BuildNavMesh(sml_vector3 *Points, sml_u32 *Indices, sml_u32 IdxCount,
              sml_f32 SlopeDegree)
 {
     sml_walkable_list List = SmlInt_BuildWalkableList(Points, Indices, IdxCount,
                                                       SlopeDegree);
 
-    sml_dynamic_array<sml_dynamic_array<sml_tri>> 
+    dynamic_array<dynamic_array<sml_tri>> 
     Clusters = SmlInt_BuildPolygonClusters(&List);
 
-    sml_dynamic_array<nav_poly> 
+    dynamic_array<nav_poly> 
     NavPolygons = BuildNavPolygons(Clusters, &List);
 
     return NavPolygons;

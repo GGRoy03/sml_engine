@@ -1,4 +1,5 @@
 #include <type_traits> // static type checking
+#include <limits>      // Invalid Idx for type (No warnings)
 
 template <typename D, typename F>
 struct slot_map
@@ -25,7 +26,7 @@ struct slot_map
     // Meta
     bool ResizeOnFull = false;
 
-    static constexpr F Invalid = F(-1);
+    static constexpr F Invalid = std::numeric_limits<F>::max();
 
     slot_map(){};
     slot_map(sml_u32 InitialSize, bool ResizeOnFull = false, bool ZeroInit = true)

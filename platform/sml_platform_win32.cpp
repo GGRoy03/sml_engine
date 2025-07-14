@@ -106,6 +106,26 @@ SmlWin32_GetClientSize(HWND Handle, sml_i32 *OutWidth, sml_i32 *OutHeight)
     *OutHeight = Rect.bottom - Rect.top;
 }
 
+static void
+SmlWin32_UTF8ToWide(const char *Str, wchar_t *OutBuffer, sml_i32 OutBufferSize)
+{
+    auto StrSize   = sml_i32(strlen(Str));
+    auto SizeNeeded = MultiByteToWideChar(CP_UTF8, 0, Str, StrSize, nullptr, 0);
+    if(SizeNeeded > OutBufferSize) return;
+
+    MultiByteToWideChar(CP_UTF8, 0, Str, StrSize, OutBuffer, SizeNeeded);
+}
+
+static void
+SmlWin32_WideToUTF8(const wchar_t *Str, char *OutBuffer, sml_i32 OutBufferSize)
+{
+    auto StrSz      = sml_i32(wcslen(Str));
+    auto SizeNeeded = WideCharToMultiByte(CP_UTF8, 0, Str, StrSz, NULL, 0, NULL, NULL);
+    if(SizeNeeded > OutBufferSize) return;
+
+    WideCharToMultiByte(CP_UTF8, 0, Str, StrSz, OutBuffer, SizeNeeded, NULL, NULL);
+}
+
 // ===========================================
 // User API implementation
 // ==========================================
@@ -175,4 +195,61 @@ bool Sml_IsKeyDown(char Char, sml_game_controller_input* Inputs)
     BYTE VKCode = LOBYTE(KeyScan);
 
     return Inputs->Buttons[VKCode].EndedDown;
+}
+
+// WARN:
+// 1) Does not parse the root name
+
+static dynamic_array<platform_file>
+Platform_BuildFileTree(const char *RootUTF8)
+{
+    auto FileTree = dynamic_array<platform_file>(0);
+
+    platform_file Root = {};
+    Root.Parent = sml_u32(-1);
+    strncpy_s(Root.FullPath, MaxNameLength, RootUTF8, _TRUNCATE);
+
+    FileTree.Push(Root);
+
+    for(sml_u32 Idx = 0; Idx < FileTree.Count; Idx++)
+    {
+        platform_file *Parent = &FileTree[Idx];
+        if(!Parent->IsDir || Parent->Parent == sml_u32(-1))
+        {
+            continue;
+        }
+
+        wchar_t WidePath[MaxPathLength];
+        SmlWin32_UTF8ToWide(Parent->FullPath, WidePath, MaxPathLength);
+
+        WIN32_FIND_DATAW Data;
+        HANDLE           Handle = INVALID_HANDLE_VALUE;
+        if(Handle == INVALID_HANDLE_VALUE)
+        {
+            continue;
+        }
+
+        do
+        {
+            if(wcscmp(Data.cFileName, L".") == 0 || wcscmp(Data.cFileName, L"..") == 0)
+            {
+                continue;
+            }
+
+            platform_file Entry = {};
+            Entry.IsDir  = (Data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+            Entry.Parent = Idx;
+            SmlWin32_WideToUTF8(Data.cFileName, Entry.Name, MaxNameLength);
+            snprintf(Entry.FullPath, MaxPathLength, "%s\\%ls",
+                     Parent->FullPath, Data.cFileName);
+
+            Parent->Children.Push(FileTree.Count);
+            FileTree.Push(Entry);
+
+        } while(FindNextFileW(Handle, &Data));
+
+        FindClose(Handle);
+    }
+
+    return FileTree;
 }
