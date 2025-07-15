@@ -1,5 +1,5 @@
 template <typename T>
-struct sml_stack
+struct stack
 {
     // Core
     T*      Values;
@@ -12,8 +12,8 @@ struct sml_stack
     // Meta
     bool ResizeOnFull;
 
-    sml_stack(){};
-    sml_stack(sml_u32 InitialSize, bool ResizeOnFull = false, bool ZeroInit = true)
+    stack(){};
+    stack(sml_u32 InitialSize, bool ResizeOnFull = false, bool ZeroInit = true)
     {
         this->Heap     = SmlMemory.Allocate(InitialSize * sizeof(T));
         this->Values   = (T*)this->Heap.Data;

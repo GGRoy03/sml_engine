@@ -180,7 +180,7 @@ SmlInt_BuildPolygonClusters(sml_walkable_list *List)
 {
     auto Visited  = dynamic_array<bool>(List->Walkable.Count);
     auto Clusters = dynamic_array<dynamic_array<sml_tri>>(0);
-    auto Stack    = sml_stack<sml_tri>(0);
+    auto Stack    = stack<sml_tri>(0);
 
     for(sml_u32 TriIdx = 0; TriIdx < List->Walkable.Count; TriIdx++)
     {

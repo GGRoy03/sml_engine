@@ -203,7 +203,8 @@ bool Sml_IsKeyDown(char Char, sml_game_controller_input* Inputs)
 }
 
 // WARN:
-// 1) Does not parse the root name
+// 1) Does not parse the root name (Do we care?)
+// 2) Code is a bit messy
 
 static dynamic_array<platform_file>
 Platform_BuildFileTree(const char *RootUTF8)
@@ -214,7 +215,8 @@ Platform_BuildFileTree(const char *RootUTF8)
     Root.Parent   = sml_u32(-1);
     Root.IsDir    = true;
     Root.Children = dynamic_array<sml_u32>(0);
-    strncpy_s(Root.FullPath, MaxNameLength, RootUTF8, _TRUNCATE);
+    strncpy_s(Root.Name    , MaxNameLength, "Root"  , _TRUNCATE);
+    strncpy_s(Root.FullPath, MaxPathLength, RootUTF8, _TRUNCATE);
 
     FileTree.Push(Root);
 
@@ -228,7 +230,7 @@ Platform_BuildFileTree(const char *RootUTF8)
 
         wchar_t WidePath[MaxPathLength];
         SmlWin32_UTF8ToWide(Parent->FullPath, WidePath, MaxPathLength);
-        wcscat_s(WidePath, MaxPathLength, L"\\*");
+        wcscat_s(WidePath, MaxPathLength, L"/*");
 
         WIN32_FIND_DATAW Data;
         HANDLE Handle = FindFirstFileW(WidePath, &Data);
@@ -257,7 +259,7 @@ Platform_BuildFileTree(const char *RootUTF8)
 
             SmlWin32_WideToUTF8(Data.cFileName, Entry.Name, MaxNameLength);
 
-            snprintf(Entry.FullPath, MaxPathLength, "%s\\%s",
+            snprintf(Entry.FullPath, MaxPathLength, "%s/%s",
                      Parent->FullPath, Entry.Name);
 
             Parent->Children.Push(FileTree.Count);
