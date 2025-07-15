@@ -48,7 +48,7 @@ bool Sml_UpdateWindow(sml_window *Window, sml_game_controller_input *Inputs);
 bool Sml_IsKeyDown(char Char);
 
 static dynamic_array<platform_file>
-Platform_FindAllFilesFrom(const char *Path);
+Platform_BuildFileTree(const char *RootUTF8);
 
 // ===========================================
 // Implementations

@@ -109,21 +109,26 @@ SmlWin32_GetClientSize(HWND Handle, sml_i32 *OutWidth, sml_i32 *OutHeight)
 static void
 SmlWin32_UTF8ToWide(const char *Str, wchar_t *OutBuffer, sml_i32 OutBufferSize)
 {
-    auto StrSize   = sml_i32(strlen(Str));
-    auto SizeNeeded = MultiByteToWideChar(CP_UTF8, 0, Str, StrSize, nullptr, 0);
-    if(SizeNeeded > OutBufferSize) return;
+    auto SizeNeeded = MultiByteToWideChar(CP_UTF8, 0, Str, -1, nullptr, 0);
 
-    MultiByteToWideChar(CP_UTF8, 0, Str, StrSize, OutBuffer, SizeNeeded);
+    if (SizeNeeded > OutBufferSize || SizeNeeded <= 0)
+    {
+        return;
+    }
+
+    MultiByteToWideChar(CP_UTF8, 0, Str, -1, OutBuffer, SizeNeeded);
 }
 
 static void
 SmlWin32_WideToUTF8(const wchar_t *Str, char *OutBuffer, sml_i32 OutBufferSize)
 {
-    auto StrSz      = sml_i32(wcslen(Str));
-    auto SizeNeeded = WideCharToMultiByte(CP_UTF8, 0, Str, StrSz, NULL, 0, NULL, NULL);
-    if(SizeNeeded > OutBufferSize) return;
+    auto SizeNeeded = WideCharToMultiByte(CP_UTF8, 0, Str, -1, NULL, 0, NULL, NULL);
+    if (SizeNeeded > OutBufferSize || SizeNeeded <= 0)
+    {
+        return;
+    }
 
-    WideCharToMultiByte(CP_UTF8, 0, Str, StrSz, OutBuffer, SizeNeeded, NULL, NULL);
+    WideCharToMultiByte(CP_UTF8, 0, Str, -1, OutBuffer, SizeNeeded, NULL, NULL);
 }
 
 // ===========================================
@@ -206,7 +211,9 @@ Platform_BuildFileTree(const char *RootUTF8)
     auto FileTree = dynamic_array<platform_file>(0);
 
     platform_file Root = {};
-    Root.Parent = sml_u32(-1);
+    Root.Parent   = sml_u32(-1);
+    Root.IsDir    = true;
+    Root.Children = dynamic_array<sml_u32>(0);
     strncpy_s(Root.FullPath, MaxNameLength, RootUTF8, _TRUNCATE);
 
     FileTree.Push(Root);
@@ -214,23 +221,26 @@ Platform_BuildFileTree(const char *RootUTF8)
     for(sml_u32 Idx = 0; Idx < FileTree.Count; Idx++)
     {
         platform_file *Parent = &FileTree[Idx];
-        if(!Parent->IsDir || Parent->Parent == sml_u32(-1))
+        if(!Parent->IsDir)
         {
             continue;
         }
 
         wchar_t WidePath[MaxPathLength];
         SmlWin32_UTF8ToWide(Parent->FullPath, WidePath, MaxPathLength);
+        wcscat_s(WidePath, MaxPathLength, L"\\*");
 
         WIN32_FIND_DATAW Data;
-        HANDLE           Handle = INVALID_HANDLE_VALUE;
-        if(Handle == INVALID_HANDLE_VALUE)
+        HANDLE Handle = FindFirstFileW(WidePath, &Data);
+        if (Handle == INVALID_HANDLE_VALUE)
         {
             continue;
         }
 
         do
         {
+            Parent = &FileTree[Idx]; // Because we might re-allocate the FileTree
+
             if(wcscmp(Data.cFileName, L".") == 0 || wcscmp(Data.cFileName, L"..") == 0)
             {
                 continue;
@@ -239,9 +249,16 @@ Platform_BuildFileTree(const char *RootUTF8)
             platform_file Entry = {};
             Entry.IsDir  = (Data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
             Entry.Parent = Idx;
+
+            if (Entry.IsDir)
+            {
+                Entry.Children = dynamic_array<sml_u32>(16);
+            }
+
             SmlWin32_WideToUTF8(Data.cFileName, Entry.Name, MaxNameLength);
-            snprintf(Entry.FullPath, MaxPathLength, "%s\\%ls",
-                     Parent->FullPath, Data.cFileName);
+
+            snprintf(Entry.FullPath, MaxPathLength, "%s\\%s",
+                     Parent->FullPath, Entry.Name);
 
             Parent->Children.Push(FileTree.Count);
             FileTree.Push(Entry);

@@ -18,22 +18,18 @@ struct sml_memory
     // Free-list
     sml_heap_block *FreeList;
     sml_u32         FreeCount;
-
-    sml_u32 *IdxStack;
-    sml_u32  IdxStackCount;
+    sml_u32         NextIdx;
 
     sml_u32 *NextArray;
     sml_u32 *PrevArray;
     sml_u32  Head;
     sml_u32  Tail;
 
-    size_t BiggestFreeBlock;
-
     // Meta-data
     bool ResizeOnFull;
 
     static constexpr sml_u32 Invalid      = sml_u32(-1);
-    static constexpr sml_u32 FreeListSize = 100;
+    static constexpr sml_u32 FreeListSize = 1000;
 
     sml_memory(){};
     sml_memory(size_t HeapSize, bool ResizeOnFull = false)
@@ -46,21 +42,21 @@ struct sml_memory
         this->FreeList  =
             (sml_heap_block*)malloc(this->FreeListSize * sizeof(sml_heap_block));
 
-        this->IdxStackCount = 0;
-        this->IdxStack      = (sml_u32*)malloc(this->FreeListSize * sizeof(sml_u32));
-
         this->NextArray = (sml_u32*)malloc(this->FreeListSize * sizeof(sml_u32) * 2);
         this->PrevArray = this->NextArray + this->FreeListSize;
         this->Head      = this->Invalid;
         this->Tail      = this->Invalid;
 
         this->ResizeOnFull = ResizeOnFull;
+        this->NextIdx = 0;
 
         memset(this->PushBase , 0, HeapSize);
         memset(this->FreeList , 0, this->FreeListSize * sizeof(sml_heap_block));
-        memset(this->IdxStack , 0, this->FreeListSize * sizeof(sml_u32));
-        memset(this->NextArray, this->Invalid, this->FreeListSize * sizeof(sml_u32));
-        memset(this->PrevArray, this->Invalid, this->FreeListSize * sizeof(sml_u32));
+
+        for (sml_u32 Idx = 0; Idx < this->FreeListSize; ++Idx) 
+        {
+            this->NextArray[Idx] = this->PrevArray[Idx] = this->Invalid;
+        }
     }
 
     sml_heap_block Allocate(size_t RequestedSize)
@@ -73,6 +69,7 @@ struct sml_memory
             if(this->ResizeOnFull)
             {
                 // BUG: Missing logic.
+                Sml_Assert(!"Resizing not implemented.");
             }
             else
             {
@@ -80,31 +77,59 @@ struct sml_memory
             }
         }
 
-        if(this->Tail != this->Invalid && RequestedSize <= this->BiggestFreeBlock)
-        { 
-            sml_heap_block *FreeBlock = nullptr;
-            sml_u32         Idx       = this->Head;
+        sml_heap_block *FreeBlock = nullptr;
+        sml_u32         Idx       = this->Head;
 
-            while(Idx != this->Invalid)
+        while(Idx != this->Invalid)
+        {
+            sml_heap_block *Block = this->FreeList + Idx;
+
+            if(Block->Size >= RequestedSize)
             {
-                sml_heap_block *Block = this->FreeList + Idx;
-
-                if(Block->Size >= RequestedSize)
-                {
-                    FreeBlock = Block;
-                    break;
-                }
-
-                Idx = this->NextArray[Idx];
+                FreeBlock = Block;
+                break;
             }
 
-            Sml_Assert(FreeBlock);
+            Idx = this->NextArray[Idx];
+        }
 
+        if (FreeBlock)
+        {
             sml_u32 Prev = this->PrevArray[Idx];
             sml_u32 Next = this->NextArray[Idx];
 
-            Prev == this->Invalid ? this->Head = Next : this->PrevArray[Next] = Prev;
-            Next == this->Invalid ? this->Tail = Prev : this->NextArray[Prev] = Next;
+            if (Prev == this->Invalid)
+            {
+                this->Head = Next;
+                if (this->Head != this->Invalid)
+                {
+                    this->PrevArray[this->Head] = this->Invalid;
+                }
+                else
+                {
+                    this->Tail = this->Invalid;
+                }
+            }
+            else if (Next == this->Invalid)
+            {
+                this->Tail = Prev;
+                if (this->Tail != this->Invalid)
+                {
+                    this->NextArray[this->Tail] = this->Invalid;
+                }
+                else
+                {
+                    this->Head = this->Invalid;
+                }
+            }
+            else
+            {
+                this->NextArray[Prev] = Next;
+                this->PrevArray[Next] = Prev;
+
+                this->NextArray[Idx] = this->Invalid;
+                this->PrevArray[Idx] = this->Invalid;
+            }
 
             sml_heap_block Result = {};
             Result.Data   = (sml_u8*)this->PushBase + FreeBlock->At;
@@ -113,25 +138,28 @@ struct sml_memory
             Result.IntIdx = FreeBlock->IntIdx;
 
             size_t SizeDiff = FreeBlock->Size - RequestedSize;
-            if(SizeDiff > 0)
+            if (SizeDiff > 0)
             {
                 sml_heap_block Extra = {};
                 Extra.Data   = (sml_u8*)this->PushBase + FreeBlock->At + RequestedSize;
                 Extra.Size   = SizeDiff;
                 Extra.At     = FreeBlock->At + RequestedSize;
-                Extra.IntIdx = this->IdxStack[--this->IdxStackCount];
+                Extra.IntIdx = this->NextIdx++;
 
-                this->InsertFreeBlock(Extra);
+                this->Free(Extra);
             }
 
+            --this->FreeCount;
+
             return Result;
-        }
+        }    
         else
         {
             sml_heap_block Block = {};
-            Block.Data = (sml_u8*)this->PushBase + this->PushSize;
-            Block.Size = RequestedSize;
-            Block.At   = this->PushSize;
+            Block.Data   = (sml_u8*)this->PushBase + this->PushSize;
+            Block.Size   = RequestedSize;
+            Block.At     = this->PushSize;
+            Block.IntIdx = this->NextIdx++;
 
             this->PushSize += RequestedSize;
 
@@ -141,52 +169,65 @@ struct sml_memory
 
     void Free(sml_heap_block Block)
     {
-        Sml_Assert(this->IdxStackCount < this->FreeListSize);
+        Sml_Assert(Block.IntIdx < this->FreeListSize);
 
-        this->InsertFreeBlock(Block);
-        this->IdxStack[this->IdxStackCount++] = Block.IntIdx;
+        this->FreeList[Block.IntIdx] = Block;
+
+        if (this->Head == this->Invalid)
+        {
+            this->Head = Block.IntIdx;
+            this->Tail = Block.IntIdx;
+        }
+        else
+        {
+            sml_u32 InsertAt = this->Head;
+            while (InsertAt != this->Invalid && Block.At > this->FreeList[InsertAt].At)
+            {
+                InsertAt = this->NextArray[InsertAt];
+            }
+
+            if (InsertAt == this->Head)
+            {
+                Sml_Assert(this->FreeList[InsertAt].At > Block.At);
+
+                this->NextArray[Block.IntIdx] = this->Head;
+                this->PrevArray[Block.IntIdx] = this->Invalid;
+
+                this->PrevArray[this->Head] = Block.IntIdx;
+
+                this->Head = Block.IntIdx;
+            }
+            else if (InsertAt == this->Invalid)
+            {
+                this->NextArray[Block.IntIdx] = this->Invalid;
+                this->PrevArray[Block.IntIdx] = this->Tail;
+
+                this->NextArray[this->Tail] = Block.IntIdx;
+
+                this->Tail = Block.IntIdx;
+            }
+            else
+            {
+                this->NextArray[Block.IntIdx] = InsertAt;
+                this->PrevArray[Block.IntIdx] = this->PrevArray[InsertAt];
+
+                this->PrevArray[InsertAt] = Block.IntIdx;
+
+                this->NextArray[this->PrevArray[Block.IntIdx]] = Block.IntIdx;
+            }
+        }
+
+        ++this->FreeCount;
     }
 
     sml_heap_block Reallocate(sml_heap_block OldBlock, sml_u32 Growth)
     {
         auto NewBlock = this->Allocate(OldBlock.Size * Growth);
         memcpy(NewBlock.Data, OldBlock.Data, OldBlock.Size);
+
         this->Free(OldBlock);
 
         return NewBlock;
-    }
-
-    void InsertFreeBlock(sml_heap_block Block)
-    {
-        sml_u32 InsertAt = this->Head;
-        while(InsertAt != this->Invalid && this->FreeList[InsertAt].At < Block.At)
-        {
-            InsertAt = this->NextArray[InsertAt];
-        }
-
-        sml_u32 NextAt = InsertAt == this->Invalid ? this->Invalid : this->NextArray[InsertAt];
-
-        if (NextAt != this->Invalid)
-        {
-            this->NextArray[Block.IntIdx] = NextAt;
-            this->PrevArray[NextAt] = Block.IntIdx;
-        }
-        else
-        {
-            this->Tail = Block.IntIdx;
-        }
-
-        if (InsertAt != this->Invalid)
-        {
-            this->PrevArray[Block.IntIdx] = InsertAt;
-            this->NextArray[InsertAt] = Block.IntIdx;
-        }
-        else
-        {
-            this->Head = Block.IntIdx;
-        }
-
-        if(Block.Size > this->BiggestFreeBlock) this->BiggestFreeBlock = Block.Size;
     }
 };
 
