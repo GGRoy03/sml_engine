@@ -5,9 +5,9 @@
 struct directory_editor
 {
     dynamic_array<platform_file> FileTree;
-    dynamic_array<bool>          Expanded;
 
-    sml_u32 ActiveIdx;
+    sml_u32 ActiveFolderIdx;
+    sml_u32 ActiveFileIdx;
 
     stack<sml_u32> Forward;
     stack<sml_u32> Backward;
@@ -28,36 +28,31 @@ SmlIntEditor_DrawEntry(directory_editor *Editor, sml_u32 Idx)
 
     ImGuiTreeNodeFlags Flags = ImGuiTreeNodeFlags_OpenOnArrow;
 
-    if(Editor->Expanded[Idx])
-    {
-        Flags |= ImGuiTreeNodeFlags_DefaultOpen;
-    }
-
     if(!File->IsDir)
     {
         Flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
     }
 
     bool NodeOpen = TreeNodeEx(File->Name, Flags);
+    bool Hovered  = IsItemHovered();
 
-    if(IsItemClicked(0))
+    if (Hovered && IsMouseDoubleClicked(0))
     {
-        if(File->IsDir)
+        if (File->IsDir)
         {
-            bool IsSame = Idx == Editor->ActiveIdx;
+            bool IsSame = Idx == Editor->ActiveFolderIdx;
 
-            if(!IsSame)
+            if (!IsSame)
             {
-                Editor->Backward.Push(Editor->ActiveIdx);
+                Editor->Backward.Push(Editor->ActiveFolderIdx);
                 Editor->Forward.Reset();
-                Editor->ActiveIdx = Idx;
-            }
 
-            Editor->Expanded[Idx] = !Editor->Expanded[Idx];
+                Editor->ActiveFolderIdx = Idx;
+            }
         }
         else
         {
-            // TODO: File selection
+            Editor->ActiveFileIdx = Idx;
         }
     }
 
@@ -85,11 +80,13 @@ SmlEditor_FileBrowser(directory_editor *Editor)
     if (!Editor->FileTree.Values)
     {
         const char *Root = "D:/Work/demo/small_engine";
+
         Editor->FileTree = Platform_BuildFileTree(Root);
         Editor->Forward  = stack<sml_u32>(10);
         Editor->Backward = stack<sml_u32>(10);
-        Editor->Expanded = dynamic_array<bool>(Editor->FileTree.Count);
-        Editor->ActiveIdx = 0;
+
+        Editor->ActiveFolderIdx = 0;
+        Editor->ActiveFileIdx   = sml_u32(-1);
     }
 
     if (Begin("File Browser", nullptr, 0))
@@ -98,8 +95,8 @@ SmlEditor_FileBrowser(directory_editor *Editor)
         {
             if (!Editor->Backward.Empty())
             {
-                Editor->Forward.Push(Editor->ActiveIdx);
-                Editor->ActiveIdx  = Editor->Backward.Pop();
+                Editor->Forward.Push(Editor->ActiveFolderIdx);
+                Editor->ActiveFolderIdx = Editor->Backward.Pop();
             }
         }
         SameLine();
@@ -107,20 +104,55 @@ SmlEditor_FileBrowser(directory_editor *Editor)
         {
             if (!Editor->Forward.Empty())
             {
-                Editor->Backward.Push(Editor->ActiveIdx);
-                Editor->ActiveIdx = Editor->Forward.Pop();
+                Editor->Backward.Push(Editor->ActiveFolderIdx);
+                Editor->ActiveFolderIdx = Editor->Forward.Pop();
             }
         }
-        SameLine();
-        if (Button("Up"))
+
+        Spacing();
+
+        if(Editor->Backward.Count > 0)
         {
+            sml_u32 NodeIdx = Editor->Backward.Under();
+            sml_u32 IterIdx = 0;
+            while(IterIdx < Editor->Backward.Count)
+            {
+                auto *Folder = Editor->FileTree.Values + NodeIdx;
+
+                if(Button(Folder->Name))
+                {
+
+                }
+
+                SameLine(0, 0);
+                TextUnformatted(" > ");
+                SameLine(0, 0);
+
+                NodeIdx = Editor->Backward.Values[++IterIdx];
+            }
+
+            auto* Folder = Editor->FileTree.Values + Editor->ActiveFolderIdx;
+            if (Button(Folder->Name))
+            {
+
+            }
+        }
+        else
+        {
+            auto* Folder = Editor->FileTree.Values + Editor->ActiveFolderIdx;
+            if (Button(Folder->Name))
+            {
+
+            }
         }
 
+        Spacing();
         Separator();
+        Spacing();
 
         if (Editor->FileTree.Count > 0)
         {
-            platform_file Root = Editor->FileTree[Editor->ActiveIdx];
+            platform_file Root = Editor->FileTree[Editor->ActiveFolderIdx];
             for (sml_u32 Idx = 0; Idx < Root.Children.Count; Idx++)
             {
                 SmlIntEditor_DrawEntry(Editor, Root.Children[Idx]);

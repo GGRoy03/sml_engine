@@ -68,6 +68,15 @@ struct stack
         return Value;
     }
 
+    inline T& Under()
+    {
+        Sml_Assert(this->Values && this->Count > 0);
+
+        T& Value = this->Values[0];
+
+        return Value;
+    }
+
     inline void Free()
     {
         SmlMemory.Free(this->Heap);
