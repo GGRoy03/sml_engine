@@ -2,7 +2,19 @@
 // Type Definitions
 // ===================================
 
-struct directory_editor
+enum FileBrowser_Flags : sml_u32
+{
+    // File Dragging States
+    FileBrowser_DraggingFile = 1 << 0, 
+    FileBrowser_DroppingFile = 1 << 1,
+};
+
+constexpr sml_bit_field FileBrowser_TransientMask =
+    FileBrowser_DraggingFile |
+    FileBrowser_DroppingFile
+;
+
+struct file_browser_ui
 {
     dynamic_array<platform_file> FileTree;
 
@@ -12,6 +24,12 @@ struct directory_editor
     stack<sml_u32> Forward;
     stack<sml_u32> Backward;
 
+    // Options
+    bool ShowHidden;
+    bool SortByName;
+
+    sml_bit_field State;
+
     bool Visible;
 };
 
@@ -20,7 +38,7 @@ struct directory_editor
 // ===================================
 
 static void
-SmlIntEditor_DrawEntry(directory_editor *Editor, sml_u32 Idx)
+SmlIntEditor_DrawEntry(file_browser_ui *Editor, sml_u32 Idx)
 {
     using namespace ImGui;
 
@@ -35,6 +53,19 @@ SmlIntEditor_DrawEntry(directory_editor *Editor, sml_u32 Idx)
 
     bool NodeOpen = TreeNodeEx(File->Name, Flags);
     bool Hovered  = IsItemHovered();
+
+    if(BeginDragDropSource())
+    {
+        SetDragDropPayload("PAYLOAD_FILE_ID", &Idx, sizeof(Idx));
+        EndDragDropSource();
+
+        Editor->State |= FileBrowser_DraggingFile;
+    }
+    else if(Editor->State & FileBrowser_DraggingFile)
+    {
+        Editor->State |=  FileBrowser_DroppingFile;
+        Editor->State &= ~FileBrowser_DroppingFile;
+    }
 
     if (Hovered && IsMouseDoubleClicked(0))
     {
@@ -67,13 +98,55 @@ SmlIntEditor_DrawEntry(directory_editor *Editor, sml_u32 Idx)
     }
 }
 
+static void
+SmlIntEditor_HandleClickOnHistory(file_browser_ui *Editor, sml_u32 ClickedIdx)
+{
+    if(Editor->Backward.Count > 0)
+    {
+        while(ClickedIdx != Editor->Backward.Peek())
+        {
+            Editor->Backward.Pop();
+        }
 
-// ===================================
+        Editor->Backward.Pop();
+        Editor->ActiveFolderIdx = ClickedIdx;
+    }
+}
+
+// BUG: Does not work?
+
+static inline void 
+SmlIntEditor_FullWidthSeparator(sml_f32 WindowPadding)
+{
+    using namespace ImGui;
+
+    Spacing();
+    Indent(-WindowPadding);
+    Separator();
+    Unindent(-WindowPadding);
+    Spacing();
+}
+
+// =================================== 
 // UI Components
 // ===================================
 
+// WARN:
+// We do some manual state tracking, because I haven't found a way to track whether
+// or not we are dragging the source or not. We can check if we are dropping whatever
+// it is we are holding, but then it's inconsistent with the code. Maybe the state
+// flags approach is incorrect, it seems decent enough to me. My only worry is that
+// one of the selling points of ImGui is that there is less state tracking.
+// I mean, we gotta have some, that's just UI work?
+
+// TODO: 
+// 1) Dropping logic (Set the correct state, do the platform work, render correct UI)
+// 2) Fix separator code
+// 3) Implement sorting/hidden files
+// 4) Lazy loading for the tree / LRU cache.
+
 static void
-SmlEditor_FileBrowser(directory_editor *Editor)
+SmlEditor_FileBrowser(file_browser_ui *Editor)
 {
     using namespace ImGui;
 
@@ -91,6 +164,10 @@ SmlEditor_FileBrowser(directory_editor *Editor)
 
     if (Begin("File Browser", nullptr, 0))
     {
+        sml_f32 WindowPadding = GetStyle().WindowPadding.x;
+
+        sml_f32 BackwardAlpha = Editor->Backward.Empty() ? 0.5f : 1.0f;
+        PushStyleVar(ImGuiStyleVar_Alpha, BackwardAlpha);
         if (Button("<--"))
         {
             if (!Editor->Backward.Empty())
@@ -99,7 +176,10 @@ SmlEditor_FileBrowser(directory_editor *Editor)
                 Editor->ActiveFolderIdx = Editor->Backward.Pop();
             }
         }
-        SameLine();
+        PopStyleVar(); SameLine();
+
+        sml_f32 ForwardAlpha = Editor->Forward.Empty() ? 0.5f : 1.0f;
+        PushStyleVar(ImGuiStyleVar_Alpha, ForwardAlpha);
         if (Button("-->"))
         {
             if (!Editor->Forward.Empty())
@@ -108,6 +188,7 @@ SmlEditor_FileBrowser(directory_editor *Editor)
                 Editor->ActiveFolderIdx = Editor->Forward.Pop();
             }
         }
+        PopStyleVar(); SameLine();
 
         Spacing();
 
@@ -121,7 +202,7 @@ SmlEditor_FileBrowser(directory_editor *Editor)
 
                 if(Button(Folder->Name))
                 {
-
+                    SmlIntEditor_HandleClickOnHistory(Editor, NodeIdx);
                 }
 
                 SameLine(0, 0);
@@ -134,21 +215,20 @@ SmlEditor_FileBrowser(directory_editor *Editor)
             auto* Folder = Editor->FileTree.Values + Editor->ActiveFolderIdx;
             if (Button(Folder->Name))
             {
-
+                SmlIntEditor_HandleClickOnHistory(Editor, NodeIdx);
             }
         }
         else
         {
-            auto* Folder = Editor->FileTree.Values + Editor->ActiveFolderIdx;
+            auto  Idx    = Editor->ActiveFolderIdx;
+            auto* Folder = Editor->FileTree.Values + Idx;
             if (Button(Folder->Name))
             {
-
+                SmlIntEditor_HandleClickOnHistory(Editor, Idx);
             }
         }
 
-        Spacing();
-        Separator();
-        Spacing();
+        SmlIntEditor_FullWidthSeparator(-WindowPadding);
 
         if (Editor->FileTree.Count > 0)
         {
@@ -158,6 +238,41 @@ SmlEditor_FileBrowser(directory_editor *Editor)
                 SmlIntEditor_DrawEntry(Editor, Root.Children[Idx]);
             }
         }
+
+        sml_f32 FooterHeight = GetFrameHeightWithSpacing() * 4;
+        SetCursorPosY(GetWindowHeight() - FooterHeight);
+
+        SmlIntEditor_FullWidthSeparator(-WindowPadding);
+
+        if (FileBrowser_DraggingFile || FileBrowser_DroppingFile)
+        {
+            InvisibleButton("##File_Browser_Drop_Target", ImVec2(200, 200));
+
+            if(BeginDragDropTarget())
+            {
+                if(const auto *Payload = AcceptDragDropPayload("PAYLOAD_FILE_ID"))
+                {
+                    IM_ASSERT(Payload->DataSize == sizeof(sml_u32));
+
+                    sml_u32 PayloadIdx = *(sml_u32*)Payload->Data;
+                }
+
+                Editor->State &= ~FileBrowser_DroppingFile;
+
+                EndDragDropTarget();
+            }
+        }
+        else
+        {
+            if (Checkbox("Show Hidden", &Editor->ShowHidden))
+            {
+            }
+
+            if (Checkbox("Sort By Name", &Editor->SortByName))
+            {
+            }
+        }
     }
+
     End();
 }

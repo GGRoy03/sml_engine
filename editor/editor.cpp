@@ -9,8 +9,7 @@ struct mesh_editor
 
 struct editor
 {
-    mesh_editor      MeshEditor;
-    directory_editor DirectoryEditor;
+    file_browser_ui FileBrowser;
 
     bool IsInitialized;
 };
@@ -73,11 +72,11 @@ SmlEditor_Render()
     {
         SmlIntEditor_SetMainTheme();
 
-        Editor.DirectoryEditor.Visible = true;
+        Editor.FileBrowser.Visible = true;
     }
 
-    if(Editor.DirectoryEditor.Visible)
+    if(Editor.FileBrowser.Visible)
     {
-        SmlEditor_FileBrowser(&Editor.DirectoryEditor);
+        SmlEditor_FileBrowser(&Editor.FileBrowser);
     }
 }
